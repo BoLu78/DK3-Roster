@@ -13,6 +13,7 @@ function cellLabel(day) {
       return dest.length ? dest.join(' ') : day.legs[0]?.arr ?? 'VOLO';
     }
     case 'transport': return 'TSP';
+    case 'vacation': return 'FER';
     case 'sim': return 'SIM';
     case 'standby': return day.code === 'RESERVE' ? 'RSV' : 'SBY';
     default: return '';
@@ -37,7 +38,7 @@ export function renderCalendar(view) {
       continue;
     }
     const k = kindOf(day);
-    const has = !['off', 'blank'].includes(day.kind);
+    const has = !['off', 'blank', 'rest'].includes(day.kind);
     const sub = day.kind === 'flight' && day.ft && day.ft !== '00:00' ? day.ft.replace(/^0/, '') : '';
     cal.append(h('button', { class: [k.cls, day.kind, has ? 'has' : '', date === today ? 'today' : '', state.pending.has(date) ? 'changed' : ''].filter(Boolean).join(' '), onclick: () => actions.openDay(date), 'aria-label': date },
       h('span', { class: 'n' }, d),
@@ -47,7 +48,7 @@ export function renderCalendar(view) {
   }
   const s = monthSummary(days);
   const legend = h('div', { class: 'legend' },
-    [['k-flight', 'Volo'], ['k-transport', 'Trasferimento'], ['k-standby', 'Stand-by'], ['k-reserve', 'Reserve'], ['k-sim', 'Simulatore'], ['k-off', 'Riposo']].map(([c, t]) => h('span', { class: c }, h('i'), t)),
+    [['k-flight', 'Volo'], ['k-transport', 'Trasferimento'], ['k-standby', 'Stand-by'], ['k-reserve', 'Reserve'], ['k-sim', 'Simulatore'], ['k-vac', 'Ferie'], ['k-off', 'Riposo']].map(([c, t]) => h('span', { class: c }, h('i'), t)),
     h('span', {}, '🛏 hotel'), h('span', {}, 'Numero sotto il giorno = FT'));
   const tot = h('div', { class: 'summary' },
     h('div', {}, h('b', {}, mmToHm(s.ft)), h('small', {}, 'FT')),

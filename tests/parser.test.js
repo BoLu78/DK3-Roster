@@ -5,7 +5,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { ROOT, pdfjs } from './helpers.js';
-import { parsePdf, checkTotals } from '../src/parser.js';
+import { parsePdf, checkTotals, hhmmToMinutes } from '../src/parser.js';
+import { buildDuties } from '../src/timeline.js';
 
 const samplesDir = path.join(ROOT, 'samples');
 const pdfs = fs.existsSync(samplesDir) ? fs.readdirSync(samplesDir).filter((f) => f.toLowerCase().endsWith('.pdf')) : [];
@@ -30,8 +31,9 @@ for (const file of pdfs) {
     assert.equal(c.offOk, true, `Off ${c.computed.offDays} / ${c.printed.offDays}`);
     for (const d of r.days) {
       if (d.kind === 'flight') {
-        assert.ok(d.checkIn && d.checkOut, `${d.date}: C/I e C/O`);
-        assert.ok(d.legs.some((l) => l.kind === 'flight'), `${d.date}: nessuna tratta`);
+        // un servizio notturno ha il C/I in un giorno e C/O e tratte nel successivo:
+        // la coerenza C/I-tratte-C/O si controlla sui servizi ricostruiti, più sotto
+        assert.ok(d.seq.length, `${d.date}: nessun evento`);
         for (const l of d.legs) {
           assert.match(l.depTime, /^\d{4}$/);
           assert.match(l.arrTime, /^\d{4}$/);
@@ -39,10 +41,20 @@ for (const file of pdfs) {
           // l'equipaggio non c'è sempre nel PDF (es. voli da BLQ): se c'è, deve essere completo
           if (l.crew) assert.ok(l.crew.cockpit.length >= 2 && l.crew.cabin.length >= 1, `${d.date} ${l.number}: equipaggio incompleto`);
         }
-        assert.ok(d.ft && d.dt, `${d.date}: FT/DT`);
       }
       if (d.hotel) assert.ok(d.hotel.name, `${d.date}: hotel senza nome`);
     }
+    // servizi ricostruiti da C/I a C/O (anche a cavallo di mezzanotte): completi, e FT/DT tornano
+    const all = [...r.days, ...r.spill].sort((a, b) => a.date.localeCompare(b.date));
+    const duties = buildDuties(all);
+    assert.ok(duties.length > 0 || r.days.every((d) => d.kind !== 'flight'));
+    for (const du of duties) {
+      assert.ok(du.ci && du.co, `servizio del ${du.dates[0]} senza C/I o C/O`);
+      assert.ok(du.endMs > du.startMs);
+      assert.ok(du.ci.ms <= du.legs[0]?.depMs && du.legs.at(-1)?.arrMs <= du.co.ms, `${du.dates[0]}: tratte fuori da C/I-C/O`);
+    }
+    const ftSum = duties.reduce((a, du) => a + hhmmToMinutes(du.ft), 0);
+    assert.equal(ftSum, hhmmToMinutes(r.totals.ft), 'FT dei servizi = FT stampato');
     // ogni aeroporto usato è nella tabella del PDF
     for (const d of r.days) for (const l of d.legs) for (const a of [l.dep, l.arr]) if (a) assert.ok(r.airports[a], `aeroporto ${a} mancante`);
   });
@@ -53,6 +65,7 @@ for (const file of pdfs) {
     assert.deepEqual([r.meta.periodStart, r.meta.periodEnd], exp.period);
     assert.deepEqual(r.totals, exp.totals);
     const byDate = new Map(r.days.map((d) => [d.date, d]));
+    assert.deepEqual(r.spill.map((d) => d.date), exp.spill ?? []);
     for (const [date, kind] of Object.entries(exp.kinds)) assert.equal(byDate.get(date).kind, kind, `${date} kind`);
     for (const [date, e] of Object.entries(exp.days)) {
       const d = byDate.get(date);
@@ -60,8 +73,8 @@ for (const file of pdfs) {
       if ('code' in e) assert.equal(d.code, e.code, at('code'));
       if ('window' in e) assert.deepEqual(d.window, e.window, at('window'));
       if (e.pickup) assert.equal(d.pickup, e.pickup, at('pickup'));
-      if (e.checkIn) assert.deepEqual([d.checkIn.airport, d.checkIn.time], e.checkIn, at('checkIn'));
-      if (e.checkOut) assert.deepEqual([d.checkOut.airport, d.checkOut.time], e.checkOut, at('checkOut'));
+      if (e.checkIn) assert.deepEqual([d.checkIn?.airport, d.checkIn?.time], e.checkIn, at('checkIn'));
+      if (e.checkOut) assert.deepEqual([d.checkOut?.airport, d.checkOut?.time], e.checkOut, at('checkOut'));
       if (e.ft) assert.equal(d.ft, e.ft, at('ft'));
       if (e.dt) assert.equal(d.dt, e.dt, at('dt'));
       if (e.simFt) assert.equal(d.simFt, e.simFt, at('simFt'));
@@ -74,10 +87,11 @@ for (const file of pdfs) {
       }
       if (e.cockpit) assert.deepEqual(flights[0].crew.cockpit.map((c) => c.code), e.cockpit, at('cockpit'));
       if (e.cabin) assert.deepEqual(flights[0].crew.cabin.map((c) => c.code), e.cabin, at('cabina'));
+      if (e.pf) assert.deepEqual(flights.map((l) => [l.takeoff, l.landing]), e.pf, at('decollo/atterraggio'));
       if (e.tags) assert.deepEqual(flights[0].crew.cockpit.map((c) => c.tag).filter(Boolean), e.tags, at('tag'));
     }
     for (const [code, frag] of Object.entries(exp.hotels)) assert.ok(r.hotels[code].name.toUpperCase().includes(frag), `hotel ${code}`);
     assert.equal(r.recurrent.length, exp.recurrentCount);
-    assert.deepEqual({ expiry: r.recurrent[0].expiry, code: r.recurrent[0].code }, exp.recurrentFirst);
+    if (exp.recurrentFirst) assert.deepEqual({ expiry: r.recurrent[0].expiry, code: r.recurrent[0].code }, exp.recurrentFirst);
   });
 }

@@ -29,7 +29,7 @@ export function renderStats(view) {
       h('div', {}, h('div', { class: 'big-num' }, mmToHm(s.ft)), h('small', {}, 'Flight time (FT)')),
       h('div', { style: 'text-align:right' }, h('div', { class: 'big-num' }, mmToHm(s.dt)), h('small', {}, 'Duty time (DT)'))),
     h('div', { style: 'margin-top:12px' },
-      [['Giorni di volo', s.flightDays], ['Settori', s.sectors], ['Notti in hotel', s.nights], ['Trasferimenti', s.transportDays], ['Stand-by', s.standbyDays], ['Reserve', s.reserveDays], ['Simulatore', `${s.simDays}${s.simFt ? ` (${mmToHm(s.simFt)} SIM FT)` : ''}`], ['Riposi', s.offDays]]
+      [['Giorni di volo', s.flightDays], ['Settori', s.sectors], ['Notti in hotel', s.nights], ['Trasferimenti', s.transportDays], ['Stand-by', s.standbyDays], ['Reserve', s.reserveDays], ['Simulatore', `${s.simDays}${s.simFt ? ` (${mmToHm(s.simFt)} SIM FT)` : ''}`], ['Riposi', s.offDays], ['Ferie', s.vacDays], ['Riposo fuori sede', s.restDays]]
         .filter(([, v]) => v !== 0 && v !== '0')
         .map(([l, v]) => h('div', { class: 'cmp' }, h('span', {}, l), h('b', {}, v))))));
 

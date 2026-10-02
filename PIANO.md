@@ -76,8 +76,8 @@ Mancano:
 
 - **Prova sull'iPhone vera** (installazione su schermata Home, scelta del file da File/Mail).
 - **Repository GitHub + GitHub Pages**: serve l'accesso all'account `BoLu78`.
-- **Più PDF di esempio** (altri mesi, con più casi: notti, cambi di fuso, hotel, corsi, ferie):
-  il parser è stato verificato su un solo PDF (ottobre 2026).
+- Il parser è verificato su tre PDF (ago, set, ott 2026): totali FT/DT/Off tornano tutti. Altri mesi
+  con casi nuovi (corsi, ferie lunghe, altri aeroporti) possono richiedere piccoli aggiustamenti.
 
 ### Cose scoperte sul PDF reale
 
@@ -96,3 +96,11 @@ Mancano:
 - Soglie avvisi scadenze: ora 90 giorni (avviso) e 30 (urgente), modificabili in Altro.
 - Fusi orari: tabella in `src/tz.js`. Un aeroporto non in tabella e di un paese con più fusi
   mostra solo l'UTC; aggiungerlo è una riga.
+
+### Aggiunto con i PDF di agosto e settembre
+
+- Servizi notturni a cavallo della mezzanotte (C/I un giorno, voli e C/O il giorno dopo):
+  gli eventi si leggono nell'ordine del PDF e i servizi si ricostruiscono da C/I a C/O (`buildDuties`).
+- Giorni oltre la fine del periodo (es. 1 settembre nel PDF di agosto): tenuti a parte (`spill`).
+- Ferie (HOL / "Vac"), "X" (riposo fuori sede o coda di un servizio), "Take-off, Landing" per tratta.
+- Da verificare con l'utente: significato esatto di "X" e di "Take-off, Landing".

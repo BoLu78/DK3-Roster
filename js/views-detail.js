@@ -36,6 +36,7 @@ function legCard(item, day) {
     h('div', { class: 'head' }, h('b', {}, name), h('span', {}, [leg.ac, dur != null && leg.kind !== 'ground' ? fmtDuration(dur) : null].filter(Boolean).join(' · '))),
     h('div', { class: 'route' }, pt(leg.dep, dep, false), h('div', { class: 'mid' }, leg.kind === 'flight' ? '✈︎' : leg.kind === 'transport' ? '→' : '•'), leg.arr ? pt(leg.arr, arr, true) : h('div')),
     off != null ? h('div', { class: 'info' }, `Fuso di ${leg.dep}: UTC${off >= 0 ? '+' : ''}${off}`) : null,
+    leg.takeoff || leg.landing ? h('div', {}, h('span', { class: 'pf' }, [leg.takeoff ? 'Decollo' : null, leg.landing ? 'Atterraggio' : null].filter(Boolean).join(' + '))) : null,
     leg.note ? h('div', { class: 'info' }, leg.note) : null,
     leg.info ? h('div', { class: 'info' }, `Info: ${leg.info}`) : null,
     leg.crew ? h('details', {}, h('summary', {}, `▸ Equipaggio${leg.crew.shared ? ' (come prima tratta)' : ''}`), crewBlock(leg.crew, state.data.pilot?.code)) : null);
@@ -47,7 +48,7 @@ function body(day) {
   const ref = day.date;
   const parts = [];
   const hero = h('div', { class: `hero ${k.cls}` }, h('span', { class: 'pill' }, k.label),
-    h('div', { class: 'big' }, day.kind === 'flight' || day.kind === 'transport' ? arrowRoute(day) : day.kind === 'sim' ? 'Simulatore' : day.kind === 'off' ? 'Riposo' : day.kind === 'standby' ? k.label : 'Nessun servizio'),
+    h('div', { class: 'big' }, day.kind === 'flight' || day.kind === 'transport' ? arrowRoute(day) : day.kind === 'sim' ? 'Simulatore' : day.kind === 'off' ? 'Riposo' : day.kind === 'vacation' ? 'Ferie' : day.kind === 'rest' ? 'Riposo fuori sede' : day.kind === 'standby' ? k.label : 'Nessun servizio'),
     day.flags.includes('E_FDP') ? h('div', { class: 'muted' }, 'E_FDP (FDP esteso)') : null,
     day.kind === 'standby' && tl.window ? h('div', {}, timeEl(times(tl.window.startMs, day.airport, ref)), ' → ', timeEl(times(tl.window.endMs, day.airport, ref))) : null);
   parts.push(hero);
@@ -56,30 +57,35 @@ function body(day) {
   if (pend) parts.push(h('div', { class: 'card changes' }, h('h2', {}, `Modificato dall'ultimo import (${{ added: 'aggiunto', removed: 'tolto', changed: 'cambiato' }[pend.kind]})`), h('ul', {}, pend.lines.map((l) => h('li', {}, l)))));
 
   const cells = [];
-  const cell = (label, t, sub) => cells.push(h('div', {}, h('small', { class: 'muted' }, label), h('b', {}, t ? t.utc + 'Z' : '—'), h('div', { class: 'sub' }, t ? (t.loc ? `${locText(t)}` : 'locale n.d.') : sub ?? '')));
-  if (tl.pickupMs) cell('Pick up', times(tl.pickupMs, day.checkIn?.airport, ref));
-  if (tl.checkIn) cell(day.checkIn.label === 'Briefing' ? 'Briefing' : 'C/I', times(tl.checkIn.ms, tl.checkIn.airport, ref), tl.checkIn.airport);
-  if (tl.checkOut) cell(day.checkOut.label === 'Debriefing' ? 'Debriefing' : 'C/O', times(tl.checkOut.ms, tl.checkOut.airport, ref), tl.checkOut.airport);
   if (day.ft != null || day.dt != null) {
     cells.push(h('div', {}, h('small', { class: 'muted' }, 'FT'), h('b', {}, day.ft ?? '—'), h('div', { class: 'sub' }, 'tempo di volo')));
     cells.push(h('div', {}, h('small', { class: 'muted' }, 'DT'), h('b', {}, day.dt ?? '—'), h('div', { class: 'sub' }, 'duty time')));
   }
   if (day.simFt && day.simFt !== '0:00') cells.push(h('div', {}, h('small', { class: 'muted' }, 'SIM FT'), h('b', {}, day.simFt)));
   if (cells.length) parts.push(h('div', { class: 'grid4' }, cells));
-  if (tl.checkIn && tl.checkOut) {
-    const a = tl.checkIn.airport;
-    const b = tl.checkOut.airport;
-    if (a) parts.push(h('p', { class: 'muted', style: 'margin:6px 4px 0;font-size:13px' }, `C/I ${a}${tl.checkIn.airport !== tl.checkOut.airport ? ` · C/O ${b}` : ''} · Orari UTC (Z), sotto l'ora locale dell'aeroporto`));
-  }
+  if (tl.events.length) parts.push(h('p', { class: 'muted', style: 'margin:10px 4px 0;font-size:13px' }, 'Orari UTC (Z) in evidenza, ora locale dell’aeroporto sotto.'));
+  const first = day.seq?.[0];
+  if (first && !['pickup', 'ci'].includes(first.t)) parts.push(h('p', { class: 'muted', style: 'margin:6px 4px 0;font-size:13px' }, '↤ Servizio iniziato il giorno prima.'));
 
-  for (const item of tl.legs) parts.push(legCard(item, day));
+  // eventi nell'ordine del PDF: pick up, C/I, tratte, C/O
+  const evRow = (label, apt, ms) => {
+    const t = times(ms, apt, ref);
+    return h('div', { class: 'ev' }, h('span', { class: 'lb' }, label, apt ? h('small', { class: 'muted' }, apt) : null),
+      h('span', { class: 'tm' }, h('b', {}, t ? utcText(t) : '—'), h('div', { class: 'loc', style: 'font-size:13px' }, t ? (t.loc ? locText(t) : 'ora locale n.d.') : '')));
+  };
+  for (const e of tl.events) {
+    if (e.t === 'leg') parts.push(legCard(e, day));
+    else if (e.t === 'pickup') parts.push(evRow('Pick up', day.checkIn?.airport ?? day.airport, e.ms));
+    else parts.push(evRow(e.label === 'C/I' || e.t === 'ci' ? (e.label ?? 'C/I') : (e.label ?? 'C/O'), e.airport, e.ms));
+  }
+  if (day.kind !== 'off' && day.kind !== 'blank' && tl.events.length && !tl.events.some((e) => e.t === 'co')) parts.push(h('p', { class: 'muted', style: 'margin:6px 4px 0;font-size:13px' }, 'Il servizio continua il giorno dopo ↦'));
 
   if (day.hotel) {
     const hot = day.hotel;
     parts.push(h('div', { class: 'card hotel' }, h('h2', {}, `Hotel ${hot.code}${hot.airport ? ` · ${hot.airport}` : ''}`), h('div', {}, hot.name ?? hot.code), hot.phone ? h('div', {}, h('a', { href: `tel:${hot.phone.replace(/[^\d+]/g, '')}` }, hot.phone)) : null));
   }
   if (day.notes.length) parts.push(h('div', { class: 'card' }, h('h2', {}, 'Note'), day.notes.map((n) => h('div', {}, n))));
-  if (day.kind === 'off') parts.push(h('p', { class: 'muted', style: 'text-align:center;margin-top:30px' }, 'Giorno di riposo'));
+  if (day.kind === 'off' && !tl.events.length) parts.push(h('p', { class: 'muted', style: 'text-align:center;margin-top:30px' }, 'Giorno di riposo'));
   if (day.kind === 'blank') parts.push(h('p', { class: 'muted', style: 'text-align:center;margin-top:30px' }, 'Nessun servizio indicato nel PDF'));
   return parts;
 }

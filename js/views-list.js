@@ -10,6 +10,17 @@ import { showImportSheet } from './views-more.js';
 
 export const arrowRoute = (day) => routeOf(day).split('-').join(' → ');
 
+// aeroporto in cui si trova l'evento con quell'istante (per l'ora locale)
+function airportAt(tl, ms, fallback) {
+  for (const e of tl.events) {
+    if (e.t === 'leg') {
+      if (e.depMs === ms) return e.leg.dep;
+      if (e.arrMs === ms) return e.leg.arr;
+    } else if (e.ms === ms) return e.airport ?? fallback;
+  }
+  return fallback;
+}
+
 // righe sintetiche di un giorno (usate da lista e prossimo servizio)
 export function daySummary(day) {
   const tl = buildDayTimeline(day);
@@ -19,18 +30,30 @@ export function daySummary(day) {
     const b = times(bMs, bApt, day.date);
     if (!a || !b) return null;
     const loc = a.loc && b.loc ? `${a.loc}–${b.loc}${b.locDelta !== a.locDelta ? '+1' : ''} LT` : '';
-    return { utc: `${a.utc}–${b.utc}Z`, loc };
+    return { utc: `${a.utc}–${b.utc}Z${b.utcDelta > a.utcDelta ? '+1' : ''}`, loc };
   };
+  const base = day.checkIn?.airport ?? day.airport;
   if (day.kind === 'flight' || day.kind === 'transport' || day.kind === 'sim') {
-    out.title = day.kind === 'sim' ? 'Simulatore' : arrowRoute(day);
-    if (tl.startMs != null && tl.endMs != null) out.timeline = rng(tl.startMs, tl.checkIn?.airport ?? day.legs[0]?.dep, tl.endMs, tl.checkOut?.airport ?? day.legs.at(-1)?.arr);
+    const first = day.seq?.[0];
+    const hasCo = tl.events.some((e) => e.t === 'co');
+    const hasCi = tl.events.some((e) => e.t === 'ci');
+    out.title = day.kind === 'sim' ? 'Simulatore' : arrowRoute(day) || (hasCi ? `C/I ${day.checkIn.airport}` : 'Servizio');
+    if (tl.startMs != null && tl.endMs != null) {
+      if (tl.endMs > tl.startMs) out.timeline = rng(tl.startMs, airportAt(tl, tl.startMs, base), tl.endMs, airportAt(tl, tl.endMs, base));
+      else {
+        const t = times(tl.startMs, airportAt(tl, tl.startMs, base), day.date);
+        out.timeline = { utc: `dalle ${t.utc}Z →`, loc: t.loc ? `${t.loc} LT` : '' };
+      }
+    }
     if (day.kind === 'flight') out.extra.push(flightNumbers(day));
     if (day.kind === 'sim' && day.legs[0]?.note) out.extra.push(day.legs[0].note);
+    if (first && !['pickup', 'ci'].includes(first.t)) out.extra.push('↤ dal giorno prima');
+    if (hasCi && !hasCo) out.extra.push('continua il giorno dopo ↦');
   } else if (day.kind === 'standby') {
     out.title = day.code === 'RESERVE' ? 'Reserve' : 'Stand-by';
     if (tl.window) out.timeline = rng(tl.window.startMs, day.airport, tl.window.endMs, day.airport);
     if (day.airport) out.extra.push(day.airport);
-  }
+  } else if (day.kind === 'vacation') out.title = 'Ferie';
   return out;
 }
 
@@ -40,8 +63,8 @@ function dayRow(day, today) {
   const cls = ['day', k.cls, day.kind, day.date === today ? 'today' : '', changed ? 'changed' : ''].filter(Boolean).join(' ');
   const dt = h('div', { class: 'dt' }, h('div', { class: 'n' }, Number(day.date.slice(8))), h('div', { class: 'w' }, DOW_SHORT[dowOf(day.date)]));
   let main;
-  if (day.kind === 'off' || day.kind === 'blank') {
-    main = h('div', { class: 'main' }, day.kind === 'off' ? 'Riposo' : '—');
+  if (['off', 'blank', 'rest'].includes(day.kind) && !day.seq?.length) {
+    main = h('div', { class: 'main' }, { off: 'Riposo', rest: 'Riposo fuori sede', blank: '—' }[day.kind], day.hotel ? h('span', { class: 'muted', style: 'margin-left:10px' }, `🛏 ${day.hotel.code} ${day.hotel.airport ?? ''}`) : null);
   } else {
     const s = daySummary(day);
     main = h('div', { class: 'main' },

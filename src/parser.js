@@ -175,6 +175,7 @@ function emptyDay(date, dow) {
     checkIn: null,
     checkOut: null,
     legs: [],
+    seq: [], // eventi nell'ordine in cui compaiono nel PDF: pickup, ci, leg, co
     hotel: null,
     ft: null,
     dt: null,
@@ -225,38 +226,55 @@ function applyRow(day, c) {
   if (c.hotel) day.hotel = { code: c.hotel, airport: c.dep ?? null };
 
   if (c.marker === 'C/I' || c.marker === 'Briefing') {
-    day.checkIn = { label: c.marker, airport: c.dep, time: c.depTime };
+    const ci = { label: c.marker, airport: c.dep, time: c.depTime };
+    day.checkIn ??= ci;
+    day.seq.push({ t: 'ci', ...ci });
     return;
   }
   if (c.marker === 'C/O' || c.marker === 'Debriefing') {
-    day.checkOut = { label: c.marker, airport: c.arr, time: c.arrTime };
+    const co = { label: c.marker, airport: c.arr, time: c.arrTime };
+    day.checkOut = co; // l'ultimo C/O del giorno
+    day.seq.push({ t: 'co', ...co });
     if (c.ft) day.ft = c.ft;
     if (c.dt) day.dt = c.dt;
     return;
   }
 
   const duty = c.duty;
-  if (/^(OFF|STAND-BY|RESERVE)$/.test(duty)) {
+  if (/^(OFF|STAND-BY|RESERVE|HOL)$/.test(duty)) {
     day.code = duty;
     day.airport = c.dep;
     if (c.depTime && c.arrTime && !(c.depTime === '0000' && c.arrTime === '0000')) day.window = { start: c.depTime, end: c.arrTime };
   } else if (/^Pick Up$/.test(duty)) {
-    day.pickup = c.depTime;
+    day.pickup ??= c.depTime;
+    day.seq.push({ t: 'pickup', time: c.depTime });
   } else if (duty === 'E_FDP') {
     day.flags.push('E_FDP');
   } else if (/^NO$/.test(duty) && c.number) {
     day.legs.push(newLeg('flight', c, { airline: duty, number: c.number }));
+    day.seq.push({ t: 'leg', index: day.legs.length - 1 });
   } else if (/^[A-Z]{3}-[A-Z]{3}$/.test(duty)) {
     day.legs.push(newLeg('transport', c, { code: duty }));
+    day.seq.push({ t: 'leg', index: day.legs.length - 1 });
   } else if (/^[A-Z0-9]{2,4}_\d+$/.test(duty)) {
     day.legs.push(newLeg('ground', c, { code: duty }));
+    day.seq.push({ t: 'leg', index: day.legs.length - 1 });
+  } else if (duty === 'X') {
+    day.code = 'X';
   } else if (duty) {
     day.notes.push(duty);
   } else if (c.notes && !c.dep && !c.depTime) {
     // riga di nota: va all'ultimo servizio ("LC 73 Trainee", "OPC 73 Trainee")
     const last = day.legs[day.legs.length - 1];
-    if (last) last.note = [last.note, c.notes].filter(Boolean).join(' ');
-    else day.notes.push(c.notes);
+    let text = c.notes;
+    if (last && /Take-off|Landing/.test(text)) {
+      // chi ha fatto decollo e/o atterraggio su questa tratta
+      last.takeoff = /Take-off/.test(text);
+      last.landing = /Landing/.test(text);
+      text = text.replace(/Take-off,?|Landing,?/g, '').replace(/\s+/g, ' ').trim();
+    }
+    if (text && last) last.note = [last.note, text].filter(Boolean).join(' ');
+    else if (text) day.notes.push(text);
   }
   if (c.ft && !day.ft) day.ft = c.ft;
   if (c.dt && !day.dt) day.dt = c.dt;
@@ -276,6 +294,8 @@ function newLeg(kind, c, extra) {
     ac: c.ac,
     info: c.info || null,
     note: null,
+    takeoff: false,
+    landing: false,
     crew: null,
     ...extra,
   };
@@ -437,23 +457,48 @@ export function parseRoster(pages) {
     return days.find((d) => d.dow === m[1] && d.date.slice(8) === m[2])?.date ?? null;
   };
   const warnings = [];
+  // Il PDF può contenere qualche giorno subito dopo (o prima) del periodo: un servizio
+  // che sconfina. Si tengono a parte (spill) e non entrano nei totali.
+  const spill = [];
+  const spillDay = (label) => {
+    const m = RE_DAY_LABEL.exec(label);
+    for (let off = 1; off <= 7; off++) {
+      for (const d of [isoAddDays(meta.periodEnd, off), isoAddDays(meta.periodStart, -off)]) {
+        if (DOW[new Date(d + 'T00:00:00Z').getUTCDay()] === m[1] && d.slice(8) === m[2]) {
+          let day = spill.find((x) => x.date === d);
+          if (!day) {
+            day = emptyDay(d, m[1]);
+            spill.push(day);
+          }
+          return day;
+        }
+      }
+    }
+    return null;
+  };
   for (const block of dayBlocks) {
     const date = dateOfLabel(block.label);
-    const day = byDate.get(date);
+    const day = byDate.get(date) ?? spillDay(block.label);
     if (!day) {
-      warnings.push(`Giorno ${block.label} fuori dal periodo`);
+      warnings.push(`Giorno ${block.label} non riconosciuto`);
       continue;
     }
     for (const c of block.cellsList) applyRow(day, c);
   }
+  for (const day of spill) {
+    day.spill = true;
+    day.kind = day.legs.some((l) => l.kind === 'flight') ? 'flight' : day.code === 'OFF' ? 'off' : day.code === 'HOL' ? 'vacation' : day.code ? 'standby' : 'blank';
+  }
 
   // striscia riepilogativa -> tipo di giornata
-  const KIND = { Off: 'off', Sby: 'standby', FlD: 'flight', Tsp: 'transport', Sim: 'sim' };
+  const KIND = { Off: 'off', Sby: 'standby', FlD: 'flight', Tsp: 'transport', Sim: 'sim', Vac: 'vacation' };
+  // "X": nessun nuovo servizio (riposo fuori sede) oppure coda di un servizio iniziato il giorno prima
+  const kindOfX = (d) => (d.legs.some((l) => l.kind === 'flight') ? 'flight' : d.legs.length ? 'transport' : 'rest');
   for (const day of days) {
     const s = strip[Number(day.date.slice(8))];
     if (s) {
       day.strip = s;
-      day.kind = KIND[s.type] ?? 'other';
+      day.kind = s.type === 'X' ? kindOfX(day) : KIND[s.type] ?? 'other';
     } else if (day.legs.some((l) => l.kind === 'flight')) day.kind = 'flight';
     else if (day.code === 'OFF') day.kind = 'off';
     else if (day.code) day.kind = 'standby';
@@ -490,7 +535,7 @@ export function parseRoster(pages) {
     if (day.hotel && hotels[day.hotel.code]) day.hotel = { ...day.hotel, name: hotels[day.hotel.code].name, phone: hotels[day.hotel.code].phone };
   }
 
-  return { meta, days, totals, hotels, airports, recurrent, warnings };
+  return { meta, days, spill, totals, hotels, airports, recurrent, warnings };
 }
 
 // ------------------------------------------------------------- calcoli sui turni

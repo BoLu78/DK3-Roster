@@ -7,7 +7,7 @@ const crewKey = (l) => (l.crew ? [...(l.crew.cockpit ?? []), ...(l.crew.cabin ??
 
 const fmtTime = (t) => (t ? `${t.slice(0, 2)}:${t.slice(2)}` : '—');
 
-const KIND_LABEL = { flight: 'Volo', transport: 'Trasferimento', standby: 'Stand-by', sim: 'Simulatore', off: 'Riposo', blank: 'Nessun servizio', other: 'Altro' };
+const KIND_LABEL = { flight: 'Volo', transport: 'Trasferimento', standby: 'Stand-by', sim: 'Simulatore', off: 'Riposo', vacation: 'Ferie', rest: 'Riposo fuori sede', blank: 'Nessun servizio', other: 'Altro' };
 const dayLabel = (d) => (d.kind === 'standby' && d.code === 'RESERVE' ? 'Reserve' : KIND_LABEL[d.kind] ?? d.kind);
 
 // Elenco di frasi che descrivono cosa è cambiato tra due giorni.

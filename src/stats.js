@@ -18,7 +18,7 @@ export function addDays(iso, n) {
 }
 
 export function monthSummary(days) {
-  const s = { ft: 0, dt: 0, simFt: 0, flightDays: 0, sectors: 0, standbyDays: 0, reserveDays: 0, simDays: 0, transportDays: 0, offDays: 0, nights: 0, blankDays: 0 };
+  const s = { ft: 0, dt: 0, simFt: 0, flightDays: 0, sectors: 0, standbyDays: 0, reserveDays: 0, simDays: 0, transportDays: 0, offDays: 0, vacDays: 0, restDays: 0, nights: 0, blankDays: 0 };
   for (const d of days) {
     s.ft += hhmmToMinutes(d.ft);
     s.dt += hhmmToMinutes(d.dt);
@@ -30,6 +30,8 @@ export function monthSummary(days) {
     else if (d.kind === 'sim') s.simDays++;
     else if (d.kind === 'transport') s.transportDays++;
     else if (d.kind === 'off') s.offDays++;
+    else if (d.kind === 'vacation') s.vacDays++;
+    else if (d.kind === 'rest') s.restDays++;
     else s.blankDays++;
   }
   return s;

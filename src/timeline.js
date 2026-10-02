@@ -10,9 +10,20 @@ export function dateToMs(isoDate) {
 
 const hhmmToMin = (s) => Number(s.slice(0, 2)) * 60 + Number(s.slice(2, 4));
 
-// Costruisce gli istanti UTC di un giorno di servizio. Gli orari sono letti in
-// ordine cronologico: quando un orario è più piccolo del precedente significa
-// che si è passati a mezzanotte (+1 giorno).
+// Eventi di un giorno nell'ordine del PDF: pickup, C/I, tratte, C/O.
+// Un servizio notturno può avere il C/I in un giorno e i voli/C/O nel successivo.
+export function sequenceOf(day) {
+  if (day.seq?.length) return day.seq;
+  const seq = [];
+  if (day.pickup) seq.push({ t: 'pickup', time: day.pickup });
+  if (day.checkIn) seq.push({ t: 'ci', ...day.checkIn });
+  day.legs.forEach((_, index) => seq.push({ t: 'leg', index }));
+  if (day.checkOut) seq.push({ t: 'co', ...day.checkOut });
+  return seq;
+}
+
+// Istanti UTC di un giorno. Gli orari sono letti in ordine cronologico: quando un
+// orario è più piccolo del precedente significa che si è passati a mezzanotte (+1 giorno).
 export function buildDayTimeline(day) {
   const base = dateToMs(day.date);
   let cursor = base;
@@ -23,27 +34,79 @@ export function buildDayTimeline(day) {
     cursor = ms;
     return ms;
   };
-  const tl = { pickupMs: null, checkIn: null, legs: [], checkOut: null, window: null };
-  if (day.pickup) tl.pickupMs = at(day.pickup);
-  if (day.checkIn?.time) tl.checkIn = { ...day.checkIn, ms: at(day.checkIn.time) };
-  for (const leg of day.legs) {
-    const depMs = at(leg.depTime);
-    const arrMs = at(leg.arrTime);
-    tl.legs.push({ leg, depMs, arrMs });
+  const events = [];
+  const legs = [];
+  for (const e of sequenceOf(day)) {
+    if (e.t === 'leg') {
+      const leg = day.legs[e.index];
+      const ev = { t: 'leg', leg, depMs: at(leg.depTime), arrMs: at(leg.arrTime) };
+      events.push(ev);
+      legs.push(ev);
+    } else {
+      events.push({ ...e, ms: at(e.time) });
+    }
   }
-  if (day.checkOut?.time) tl.checkOut = { ...day.checkOut, ms: at(day.checkOut.time) };
+  const tl = { events, legs, pickupMs: null, checkIn: null, checkOut: null, window: null };
+  tl.pickupMs = events.find((e) => e.t === 'pickup')?.ms ?? null;
+  tl.checkIn = events.find((e) => e.t === 'ci') ?? null;
+  tl.checkOut = [...events].reverse().find((e) => e.t === 'co') ?? null;
   if (day.window) {
     const startMs = base + hhmmToMin(day.window.start) * MIN;
     let endMs = base + hhmmToMin(day.window.end) * MIN;
     if (endMs < startMs) endMs += DAY;
     tl.window = { startMs, endMs, airport: day.airport };
   }
-  // inizio/fine del servizio
-  const first = tl.checkIn?.ms ?? tl.legs.find((l) => l.depMs != null)?.depMs ?? tl.window?.startMs ?? null;
-  const last = tl.checkOut?.ms ?? [...tl.legs].reverse().find((l) => l.arrMs != null)?.arrMs ?? tl.window?.endMs ?? null;
-  tl.startMs = first;
-  tl.endMs = last;
+  const all = events.flatMap((e) => (e.t === 'leg' ? [e.depMs, e.arrMs] : [e.ms])).filter((v) => v != null);
+  if (tl.window) all.push(tl.window.startMs, tl.window.endMs);
+  tl.startMs = all.length ? Math.min(...all) : null;
+  tl.endMs = all.length ? Math.max(...all) : null;
   return tl;
+}
+
+// Servizi completi (da C/I a C/O) ricostruiti attraverso più giorni.
+// days: giorni in ordine di data. Ogni servizio: { startMs, endMs, pickupMs, ci, co, legs, kind, dates, ft, dt, hotel }.
+export function buildDuties(days) {
+  const duties = [];
+  let cur = null;
+  let pickup = null;
+  const open = (startMs, ci) => ({ startMs, endMs: startMs, pickupMs: pickup, ci, co: null, legs: [], dates: [], ft: null, dt: null, hotel: null });
+  const close = () => {
+    if (!cur) return;
+    cur.kind = cur.legs.some((l) => l.leg.kind === 'flight') ? 'flight' : cur.legs.some((l) => l.leg.kind === 'ground') ? 'sim' : 'transport';
+    if (cur.endMs > cur.startMs || cur.legs.length) duties.push(cur);
+    cur = null;
+  };
+  for (const day of days) {
+    const tl = buildDayTimeline(day);
+    const touch = () => {
+      if (cur && !cur.dates.includes(day.date)) cur.dates.push(day.date);
+    };
+    for (const ev of tl.events) {
+      if (ev.t === 'pickup') pickup = ev.ms;
+      else if (ev.t === 'ci') {
+        close();
+        cur = open(ev.ms, ev);
+        pickup = null;
+        touch();
+      } else if (ev.t === 'leg') {
+        if (!cur) cur = open(ev.depMs, null);
+        cur.legs.push(ev);
+        cur.endMs = Math.max(cur.endMs, ev.arrMs ?? ev.depMs ?? 0);
+        touch();
+      } else if (ev.t === 'co') {
+        if (!cur) cur = open(ev.ms, null);
+        cur.co = ev;
+        cur.endMs = Math.max(cur.endMs, ev.ms);
+        touch();
+        cur.ft = day.ft;
+        cur.dt = day.dt;
+        cur.hotel = day.hotel;
+        close();
+      }
+    }
+  }
+  close();
+  return duties;
 }
 
 export function fmtUtc(ms) {
