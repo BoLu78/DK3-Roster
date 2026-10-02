@@ -140,3 +140,17 @@ test('statistiche: riepilogo mese e finestre mobili', () => {
   assert.equal(rolling(map, '2026-10-03', 3).ft, 1100);
   assert.equal(rolling(map, '2026-10-03', 2).ft, 550);
 });
+
+test('rotazioni: servizio notturno con pernottamento = una sola barra', async () => {
+  const { buildTrips } = await import('../src/trips.js');
+  const leg = (n, dep, arr, d, a) => ({ kind: 'flight', airline: 'NO', number: n, dep, arr, depTime: d, arrTime: a, ac: 'B737' });
+  const d1 = day('2026-09-15', { checkIn: { label: 'C/I', airport: 'MXP', time: '0400' }, legs: [leg('1', 'MXP', 'BGY', '0500', '0800')], checkOut: { label: 'C/O', airport: 'BGY', time: '0830' }, hotel: { code: 'H1' } });
+  const d2 = day('2026-09-16', { checkIn: { label: 'C/I', airport: 'BGY', time: '2310' }, legs: [], checkOut: null });
+  const d3 = day('2026-09-17', { checkIn: null, legs: [leg('2', 'BGY', 'DSS', '0013', '0603')], checkOut: { label: 'C/O', airport: 'MXP', time: '0900' } });
+  const d4 = day('2026-09-20', { legs: [leg('3', 'MXP', 'FUE', '0600', '0900')] });
+  const trips = buildTrips([d1, d2, d3, d4], 'MXP');
+  assert.equal(trips.length, 2);
+  assert.deepEqual([trips[0].startDate, trips[0].endDate], ['2026-09-15', '2026-09-17']);
+  assert.deepEqual(trips[0].stops, ['BGY', 'DSS']);
+  assert.deepEqual([trips[1].startDate, trips[1].endDate, trips[1].stops], ['2026-09-20', '2026-09-20', ['FUE']]);
+});

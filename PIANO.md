@@ -106,3 +106,9 @@ Mancano:
 - "X" (confermato dall'utente): giorno "sporcato" dalla coda di un servizio iniziato il giorno prima
   (es. 18 set: il duty finisce alle 05:50Z). Senza eventi = nessun nuovo servizio.
 - Da verificare: "Take-off, Landing" = decollo e/o atterraggio fatti dall'utente su quella tratta.
+
+### Calendario in stile NetLine (2 ott 2026)
+
+Vista mensile come l'"Interactive Duty Plan" di NetLine: settimane in riga, barra colorata per giorno
+(OFF, HOL/ferie, stand-by, reserve, sim) e **rotazioni** da base a base come barra continua
+(`src/trips.js`), 🛏 sui giorni di hotel, riquadro del giorno selezionato sotto il calendario.
