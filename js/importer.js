@@ -13,14 +13,24 @@ function loadPdfjs() {
 
 export class ImportError extends Error {}
 
+const describe = (e) => `${e?.name ?? 'Errore'}: ${String(e?.message ?? e).slice(0, 160)}`;
+
 // Legge il PDF e prepara il record da salvare. Non scrive nulla.
 export async function readRoster(arrayBuffer, existingImports, fileName = '') {
-  const pdfjs = await loadPdfjs();
+  let pdfjs;
+  try {
+    pdfjs = await loadPdfjs();
+  } catch (e) {
+    pdfjsPromise = undefined;
+    throw new ImportError(`Non riesco ad avviare il lettore PDF (${describe(e)}).`);
+  }
   let roster;
   try {
     roster = await parsePdf(pdfjs, arrayBuffer);
   } catch (e) {
-    throw new ImportError('Non riesco a leggere questo file: non sembra un PDF valido.');
+    console.error(e);
+    const bad = /Invalid PDF|InvalidPDF|header/i.test(`${e?.name} ${e?.message}`);
+    throw new ImportError(bad ? 'Questo file non sembra un PDF valido.' : `Non riesco a leggere il PDF (${describe(e)}).`);
   }
   if (!roster.meta.periodStart || !roster.meta.periodEnd || !roster.days.length || !roster.days.some((d) => d.kind !== 'blank')) {
     throw new ImportError('PDF non riconosciuto: non trovo il periodo e i turni di un "Individual duty plan" NetLine/Crew. Il formato potrebbe essere cambiato.');
