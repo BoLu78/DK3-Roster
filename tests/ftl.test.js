@@ -82,3 +82,18 @@ test('analisi: la notte locale conta 8 ore tra le 22:00 e le 08:00', () => {
   assert.equal(r.duties[1].tags.includes('presto'), true);
   assert.ok(r.rests[0]); // riposo calcolato
 });
+
+test('riposo: parte dalla fine dello stand-by precedente (caso verificato con l’app EASA)', () => {
+  // stand-by 08:00-17:00Z il giorno prima, presentazione 05:30Z -> riposo 12:30, minimo 12:00
+  const sby = { date: '2026-10-02', dow: 'Fri', kind: 'standby', code: 'STAND-BY', airport: 'MXP', window: { start: '0800', end: '1700' }, legs: [], flags: [], notes: [], ft: '00:00', dt: '00:00' };
+  const duty = day('2026-10-03', [flight('1', 'MXP', 'RMF', '0630', '1050'), flight('2', 'RMF', 'MXP', '1140', '1630')], '0530', '1700');
+  const r = analyze([sby, duty], { base: 'MXP', airports: AIRPORTS });
+  assert.equal(r.rests.length, 1);
+  assert.equal(r.rests[0].restMin, m(12, 30));
+  assert.equal(r.rests[0].needMin, m(12));
+  assert.ok(r.rests[0].why.includes('dopo stand-by'));
+  // FDP 11:00 / massimo 13:00 / discrezione 15:00, come nell'app EASA
+  assert.equal(r.duties[0].fdp.min, m(11));
+  assert.equal(r.duties[0].limits.basic, m(13));
+  assert.equal(r.duties[0].limits.discretion, m(15));
+});

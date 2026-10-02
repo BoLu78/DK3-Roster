@@ -296,11 +296,27 @@ export function analyze(days, options) {
     if (d.tzUnknown) add('info', date, `Fuso di ${d.ciApt} non noto: uso l’ora di base`);
   }
 
-  // riposi tra servizi consecutivi
+  // riposi: dalla fine del servizio o dello stand-by precedente alla presentazione del servizio successivo.
+  // La reserve non si considera (senza orari: non si sa quando finisce) e non genera un riposo da rispettare.
+  const standbyItems = [];
+  for (const day of sorted) {
+    if (day.kind !== 'standby' || !day.window) continue;
+    const base0 = Date.parse(day.date + 'T00:00:00Z');
+    const toMs = (hhmm) => base0 + (Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(2))) * MIN;
+    const startMs = toMs(day.window.start);
+    let endMs = toMs(day.window.end);
+    if (endMs < startMs) endMs += 86400000;
+    standbyItems.push({ standby: true, startMs, endMs, dutyMin: 0, ciApt: day.airport ?? base, coApt: day.airport ?? base, tags: [], dates: [day.date] });
+  }
+  const timeline = [...duties, ...standbyItems].sort((a, b) => a.startMs - b.startMs);
   const rests = [];
-  for (let i = 1; i < duties.length; i++) {
-    const r = restBetween(duties[i - 1], duties[i], ctx);
+  for (let i = 1; i < timeline.length; i++) {
+    const next = timeline[i];
+    if (next.standby) continue; // il riposo che conta è quello prima di un servizio
+    const prev = timeline.slice(0, i).reduce((a, b) => (b.endMs > a.endMs ? b : a)); // ciò che finisce per ultimo
+    const r = restBetween(prev, next, ctx);
     if (!r) continue;
+    if (prev.standby) r.why.unshift('dopo stand-by');
     rests.push(r);
     if (r.status === 'over') add('bad', isoDate(r.toMs), `Riposo ${fmtHM(r.restMin)} sotto il minimo ${fmtHM(r.needMin)} (${r.why.join('; ')})${r.hasNight ? '' : ' — manca la notte locale'}`);
     else if (r.status === 'warn') add('warn', isoDate(r.toMs), `Riposo ${fmtHM(r.restMin)} appena sopra il minimo ${fmtHM(r.needMin)}`);
