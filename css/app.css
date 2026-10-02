@@ -42,8 +42,8 @@ small, .muted { color: var(--muted); }
 #view { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 12px calc(var(--tab-h) + var(--safe-b) + 20px); outline: none; }
 
 #tabs { position: fixed; left: 0; right: 0; bottom: 0; display: flex; background: color-mix(in srgb, var(--card) 92%, transparent); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid var(--sep); padding-bottom: var(--safe-b); z-index: 5; }
-#tabs button { flex: 1; height: var(--tab-h); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; color: var(--muted); position: relative; }
-#tabs button svg { width: 26px; height: 26px; }
+#tabs button { flex: 1; min-width: 0; height: var(--tab-h); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 10px; color: var(--muted); position: relative; }
+#tabs button svg { width: 24px; height: 24px; }
 #tabs button[aria-current="page"] { color: var(--accent); }
 #tabs .badge { position: absolute; top: 5px; left: calc(50% + 6px); min-width: 17px; height: 17px; border-radius: 9px; background: var(--danger); color: #fff; font-size: 11px; font-weight: 700; line-height: 17px; text-align: center; padding: 0 4px; }
 
@@ -222,3 +222,17 @@ input[type=number] { width: 72px; text-align: right; }
 .selroute { font-size: 22px; font-weight: 800; margin: 6px 0 2px; }
 .cl { padding: 6px 0; border-top: 1px solid var(--sep); font-size: 14.5px; font-variant-numeric: tabular-nums; }
 .cl:first-of-type { border-top: 0; } .cl-t { font-weight: 600; color: var(--muted); font-size: 13px; }
+
+/* mappa */
+.mapbox { position: relative; border-radius: 14px; overflow: hidden; background: var(--card); margin: 6px 0; }
+.mapbox.mini { margin: 12px 0 0; }
+.mp { display: block; width: 100%; user-select: none; -webkit-user-select: none; }
+.mp-sea { fill: #cfe3f3; } .mp-land { fill: #ecebe4; stroke: #b9b7ab; stroke-width: .6px; }
+.mp-arc { fill: none; stroke: var(--k-flight); stroke-linecap: round; opacity: .85; }
+.mp-dot { fill: #fff; stroke: var(--k-flight); stroke-width: 2px; vector-effect: non-scaling-stroke; cursor: pointer; }
+.mp-lbl { fill: #1b2b3a; font-weight: 700; paint-order: stroke; stroke: rgba(255,255,255,.85); stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
+@media (prefers-color-scheme: dark) { .mp-sea { fill: #10202e; } .mp-land { fill: #34424f; stroke: #52616f; } .mp-dot { fill: #0b1620; } .mp-lbl { fill: #e8eef4; stroke: rgba(0,0,0,.7); } }
+.mapctl { position: absolute; right: 8px; top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.mapctl button { width: 38px; height: 38px; border-radius: 10px; background: color-mix(in srgb, var(--card) 90%, transparent); font-size: 20px; font-weight: 600; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
+.ap { display: flex; width: 100%; align-items: baseline; gap: 6px; padding: 9px 0; border-top: 1px solid var(--sep); text-align: left; }
+.ap:first-of-type { border-top: 0; } .ap .cnt { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }

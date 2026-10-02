@@ -9,6 +9,7 @@ import { renderCalendar } from './views-calendar.js';
 import { renderStats } from './views-stats.js';
 import { renderRecurrent, alertCount } from './views-recurrent.js';
 import { renderMore, showImportSheet, restoreBackup } from './views-more.js';
+import { renderMap } from './views-map.js';
 import { showDetail } from './views-detail.js';
 
 const $ = (id) => document.getElementById(id);
@@ -17,11 +18,12 @@ const view = $('view');
 const ICONS = {
   list: '<path d="M4 6h16M4 12h16M4 18h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
   cal: '<rect x="3.5" y="5" width="17" height="15" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3.5 10h17M8 3v4M16 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  map: '<path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z M9 4v13.5 M15 6.5V20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/>',
   stats: '<path d="M5 20V11M12 20V4M19 20v-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
   exp: '<circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3.2 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
   more: '<circle cx="5" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="19" cy="12" r="1.8" fill="currentColor"/>',
 };
-const TABS = [['list', 'Turni'], ['cal', 'Calendario'], ['stats', 'Statistiche'], ['exp', 'Scadenze'], ['more', 'Altro']];
+const TABS = [['list', 'Turni'], ['cal', 'Calendario'], ['map', 'Mappa'], ['stats', 'Statistiche'], ['exp', 'Scadenze'], ['more', 'Altro']];
 
 // ---------------------------------------------------------------- dati
 async function load() {
@@ -44,7 +46,7 @@ function renderTabs() {
 
 function renderTop() {
   const top = $('topbar');
-  const monthly = ['list', 'cal', 'stats'].includes(state.tab) && hasData();
+  const monthly = ['list', 'cal', 'map', 'stats'].includes(state.tab) && hasData();
   if (monthly) {
     const keys = monthKeys();
     const i = keys.indexOf(state.month);
@@ -67,10 +69,11 @@ function emptyState() {
 function render() {
   renderTabs();
   renderTop();
-  const needsData = ['list', 'cal', 'stats'].includes(state.tab);
+  const needsData = ['list', 'cal', 'map', 'stats'].includes(state.tab);
   if (needsData && !hasData()) view.replaceChildren(emptyState());
   else if (state.tab === 'list') renderList(view);
   else if (state.tab === 'cal') renderCalendar(view);
+  else if (state.tab === 'map') renderMap(view);
   else if (state.tab === 'stats') renderStats(view);
   else if (state.tab === 'exp') renderRecurrent(view);
   else renderMore(view);

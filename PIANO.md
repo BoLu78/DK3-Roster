@@ -112,3 +112,11 @@ Mancano:
 Vista mensile come l'"Interactive Duty Plan" di NetLine: settimane in riga, barra colorata per giorno
 (OFF, HOL/ferie, stand-by, reserve, sim) e **rotazioni** da base a base come barra continua
 (`src/trips.js`), 🛏 sui giorni di hotel, riquadro del giorno selezionato sotto il calendario.
+
+### Mappa delle tratte (2 ott 2026)
+
+Scheda **Mappa** (come RosterBuster): tratte come curve (cerchio massimo), aeroporti con codice,
+filtro mese / anno / tutto, zoom con le dita, conteggi (settori, aeroporti, paesi, km) e mini-mappa nel dettaglio del giorno.
+Tutto offline: contorni dei continenti in `js/worldmap.js` (Natural Earth, dominio pubblico, generato da
+`tools/make-worldmap.mjs`), coordinate degli aeroporti in `src/airports-geo.js`. Un aeroporto senza coordinate
+non viene disegnato e viene segnalato sotto la mappa: basta aggiungere una riga.

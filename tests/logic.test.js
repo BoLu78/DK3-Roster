@@ -154,3 +154,21 @@ test('rotazioni: servizio notturno con pernottamento = una sola barra', async ()
   assert.deepEqual(trips[0].stops, ['BGY', 'DSS']);
   assert.deepEqual([trips[1].startDate, trips[1].endDate, trips[1].stops], ['2026-09-20', '2026-09-20', ['FUE']]);
 });
+
+test('geo: distanze, rotte e tratte', async () => {
+  const { distanceKm, greatCircle, collectRoutes } = await import('../src/geo.js');
+  const { coordsFor } = await import('../src/airports-geo.js');
+  const d = distanceKm(coordsFor('MXP'), coordsFor('JFK'));
+  assert.ok(d > 6300 && d < 6600, `MXP-JFK ${d}`);
+  const arc = greatCircle(coordsFor('MXP'), coordsFor('JFK'), 8);
+  assert.equal(arc.length, 9);
+  assert.ok(arc[4][0] > 50, 'la rotta verso New York sale verso nord'); // cerchio massimo, non linea retta
+  assert.deepEqual(coordsFor('IBT'), coordsFor('BLQ'));
+  const days = [day('2026-10-03'), day('2026-10-04')];
+  days[1].legs = [{ kind: 'flight', airline: 'NO', number: '1', dep: 'MXP', arr: 'ZZZ', depTime: '0600', arrTime: '0900' }, { kind: 'transport', dep: 'RMI', arr: 'BLQ' }];
+  const r = collectRoutes(days);
+  assert.equal(r.sectors, 2); // MXP-RMF e RMF-MXP del primo giorno
+  assert.equal(r.routes.length, 1);
+  assert.equal(r.routes[0].count, 2);
+  assert.deepEqual(r.missing, ['ZZZ']);
+});

@@ -4,6 +4,8 @@ import { state, actions } from './state.js';
 import { times, timeEl, utcText, locText } from './timefmt.js';
 import { buildDayTimeline, durationMin, fmtDuration, utcOffsetHours } from '../src/timeline.js';
 import { arrowRoute } from './views-list.js';
+import { collectRoutes } from '../src/geo.js';
+import { createMap } from './map.js';
 
 const sheet = () => document.getElementById('sheet');
 
@@ -73,6 +75,12 @@ function body(day) {
     return h('div', { class: 'ev' }, h('span', { class: 'lb' }, label, apt ? h('small', { class: 'muted' }, apt) : null),
       h('span', { class: 'tm' }, h('b', {}, t ? utcText(t) : '—'), h('div', { class: 'loc', style: 'font-size:13px' }, t ? (t.loc ? locText(t) : 'ora locale n.d.') : '')));
   };
+  const geo = collectRoutes([day]);
+  if (geo.routes.length) {
+    const mini = h('div', { class: 'mapbox mini' });
+    parts.push(mini);
+    requestAnimationFrame(() => createMap(mini, { routes: geo.routes, airports: geo.airports, height: 170, interactive: false }));
+  }
   for (const e of tl.events) {
     if (e.t === 'leg') parts.push(legCard(e, day));
     else if (e.t === 'pickup') parts.push(evRow('Pick up', day.checkIn?.airport ?? day.airport, e.ms));
