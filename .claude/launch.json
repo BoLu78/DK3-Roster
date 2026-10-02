@@ -1,0 +1,6 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "dk3-roster", "runtimeExecutable": "node", "runtimeArgs": ["tools/serve.mjs", "8765"], "port": 8765 }
+  ]
+}

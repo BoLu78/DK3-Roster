@@ -1,0 +1,7 @@
+{
+  "name": "dk3-roster",
+  "private": true,
+  "type": "module",
+  "description": "DK3 Roster - PWA per leggere i turni Neos dal PDF Individual duty plan",
+  "scripts": { "test": "node --test" }
+}
