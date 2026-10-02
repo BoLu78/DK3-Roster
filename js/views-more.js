@@ -1,6 +1,6 @@
 // "Altro": import, cronologia, export .ics, backup, impostazioni.
 import { h, fmtDayShort, fmtDayLong, fmtMonth, titleCase } from './util.js';
-import { state, actions, saveSettings, monthKeys } from './state.js';
+import { state, actions, saveSettings, monthKeys, homeTravelMin } from './state.js';
 import { checkTotals } from '../src/parser.js';
 import { buildIcs } from '../src/ics.js';
 import { deleteImport, clearImports, replaceImports, putImport, allImports } from './db.js';
@@ -94,6 +94,17 @@ export function renderMore(view) {
       } }, 'Esporta .ics'),
       h('p', { class: 'muted', style: 'font-size:13px;margin-top:8px' }, 'Gli eventi vanno da C/I a C/O in orario UTC: il Calendario li mostra nell’ora locale del telefono. L’elenco dei dettagli (orari UTC e locali, FT, DT, hotel) è nelle note.')));
   }
+
+  // partenza da casa
+  const travel = h('input', { type: 'number', min: 0, max: 600, step: 5, value: homeTravelMin(), inputmode: 'numeric' });
+  travel.addEventListener('change', () => {
+    s.homeTravelMin = Math.min(600, Math.max(0, Math.round(Number(travel.value) || 0)));
+    saveSettings();
+    actions.refresh();
+  });
+  parts.push(h('div', { class: 'card' }, h('h2', {}, 'Partenza da casa'),
+    h('label', { class: 'field' }, h('span', {}, 'Minuti prima della presentazione'), travel),
+    h('p', { class: 'muted', style: 'font-size:13px' }, 'Quando ti presenti alla base, l’app mostra a che ora partire da casa (presentazione meno questi minuti). Cambia il valore se cambi casa.')));
 
   // soglie scadenze
   const warn = h('input', { type: 'number', min: 1, max: 365, value: s.warn, inputmode: 'numeric' });

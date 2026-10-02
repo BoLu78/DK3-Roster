@@ -1,6 +1,6 @@
 // Lista dei giorni del mese, stile RosterBuster.
 import { h, DOW_SHORT, dowOf, fmtMonth, fmtDayShort, isoWeek, kindOf, mmToHm, todayIso } from './util.js';
-import { state, actions, monthDays, monthKeys } from './state.js';
+import { state, actions, monthDays, monthKeys, homeTravelMin } from './state.js';
 import { times, utcText, locText } from './timefmt.js';
 import { buildDayTimeline } from '../src/timeline.js';
 import { routeOf, flightNumbers } from '../src/ics.js';
@@ -58,6 +58,14 @@ export function daySummary(day) {
   return out;
 }
 
+// partenza da casa (solo se la presentazione è alla base)
+function homeChip(day) {
+  const ci = buildDayTimeline(day).events.find((e) => e.t === 'ci');
+  if (!ci || ci.airport !== (state.data.pilot?.base ?? 'MXP')) return null;
+  const t = times(ci.ms - homeTravelMin() * 60000, ci.airport, day.date);
+  return t?.loc ? h('span', {}, `🏠 ${t.loc} LT`) : null;
+}
+
 // FDP effettivo / massimo del servizio che inizia in questo giorno
 export function ftlChip(day) {
   const d = state.ftl?.byDate.get(day.date)?.duties.find((x) => x.fdp && x.dates[0] === day.date);
@@ -78,7 +86,7 @@ function dayRow(day, today) {
     main = h('div', { class: 'main' },
       h('div', { class: 'l1' }, h('span', { class: 'route' }, s.title), day.ft && day.kind === 'flight' ? h('span', { class: 'ft' }, `FT ${day.ft.replace(/^0/, '')}`) : null),
       s.timeline ? h('div', { class: 'l2' }, s.timeline.utc, s.timeline.loc ? h('span', { class: 'loc' }, `  ·  ${s.timeline.loc}`) : null) : null,
-      h('div', { class: 'l3' }, s.extra.filter(Boolean).map((x) => h('span', {}, x)), ftlChip(day), day.hotel ? h('span', {}, `🛏 ${day.hotel.code} ${day.hotel.airport ?? ''}`) : null, day.flags.includes('E_FDP') ? h('span', {}, 'E_FDP') : null));
+      h('div', { class: 'l3' }, s.extra.filter(Boolean).map((x) => h('span', {}, x)), homeChip(day), ftlChip(day), day.hotel ? h('span', {}, `🛏 ${day.hotel.code} ${day.hotel.airport ?? ''}`) : null, day.flags.includes('E_FDP') ? h('span', {}, 'E_FDP') : null));
   }
   return h('button', { class: cls, onclick: () => actions.openDay(day.date), 'aria-label': day.date }, dt, h('div', { class: 'bar' }), main);
 }

@@ -136,3 +136,8 @@ il PDF del manuale non è nel repository).
 - Verificato con lo screenshot dell'app EASA FTL: servizio 25 set (inizio 03:20Z) → massimo 12:15 e discrezione 14:15, identici.
 - Non controllato: ritardi reali, discrezione effettiva, alloggio idoneo a base, compensazione fusi ≥4 h oltre la segnalazione.
 - Da capire: il flag E_FDP del roster (l'8 ott ha FDP 12:00 con massimo 12:30, quindi dentro il limite).
+
+### Rifiniture dopo la prova sull'iPhone (2 ott 2026)
+
+- Dettaglio giorno: FDP cockpit e riposo in fondo alla pagina. Tolti equipaggio e codici a 3 lettere (restano nei dati, non si mostrano).
+- Partenza da casa (presentazione alla base meno N minuti, default 90, impostabile in Altro): nel dettaglio e nella lista.

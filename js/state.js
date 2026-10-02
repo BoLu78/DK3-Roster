@@ -19,7 +19,7 @@ export const state = {
 export const actions = { ftlChanged() {}, go() {}, openDay() {}, closeSheet() {}, refresh() {}, toast() {}, pickPdf() {}, showImportResult() {} };
 
 function loadSettings() {
-  const base = { warn: DEFAULT_THRESHOLDS.warn, critical: DEFAULT_THRESHOLDS.critical, include787: false, icsScope: 'all', icsAlarm: 0, statsUntil: 'auto', ftlCrew: {} };
+  const base = { warn: DEFAULT_THRESHOLDS.warn, critical: DEFAULT_THRESHOLDS.critical, include787: false, icsScope: 'all', icsAlarm: 0, statsUntil: 'auto', ftlCrew: {}, homeTravelMin: 90 };
   try {
     return { ...base, ...JSON.parse(storage.getItem(SETTINGS_KEY) ?? '{}') };
   } catch {
@@ -34,3 +34,9 @@ export function saveSettings() {
 export const hasData = () => state.data.days.size > 0;
 export const monthDays = (key) => [...state.data.days.values()].filter((d) => d.date.startsWith(key)).sort((a, b) => a.date.localeCompare(b.date));
 export const monthKeys = () => [...new Set([...state.data.days.keys()].map((d) => d.slice(0, 7)))].sort();
+
+// minuti tra la partenza da casa e la presentazione (impostabile in Altro)
+export const homeTravelMin = () => {
+  const n = Number(state.settings.homeTravelMin);
+  return Number.isFinite(n) && n >= 0 && n <= 600 ? Math.round(n) : 90;
+};

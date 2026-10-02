@@ -1,6 +1,6 @@
 // Dettaglio di un giorno di servizio.
 import { h, fmtDayShort, DOW_SHORT, dowOf, kindOf, titleCase } from './util.js';
-import { state, actions, saveSettings } from './state.js';
+import { state, actions, saveSettings, homeTravelMin } from './state.js';
 import { fmtHM } from '../src/ftl.js';
 import { times, timeEl, utcText, locText } from './timefmt.js';
 import { buildDayTimeline, durationMin, fmtDuration, fmtUtc, utcOffsetHours } from '../src/timeline.js';
@@ -13,13 +13,6 @@ const sheet = () => document.getElementById('sheet');
 function airportName(code) {
   const n = state.data.airports[code]?.name;
   return n ? titleCase(n.replace(/\s+APT$/i, '')) : '';
-}
-
-function crewBlock(crew, me) {
-  const group = (label, list) => list?.length
-    ? h('div', { class: 'crew' }, h('span', { class: 'grp' }, label), list.map((c) => h('span', { class: `p${c.code === me ? ' me' : ''}` }, c.code, c.tag ? h('i', {}, c.tag) : null)))
-    : null;
-  return [group('Cockpit', crew.cockpit), group('Cabina', crew.cabin), group('Equip.', crew.other)];
 }
 
 function legCard(item, day) {
@@ -40,9 +33,7 @@ function legCard(item, day) {
     h('div', { class: 'route' }, pt(leg.dep, dep, false), h('div', { class: 'mid' }, leg.kind === 'flight' ? '✈︎' : leg.kind === 'transport' ? '→' : '•'), leg.arr ? pt(leg.arr, arr, true) : h('div')),
     off != null ? h('div', { class: 'info' }, `Fuso di ${leg.dep}: UTC${off >= 0 ? '+' : ''}${off}`) : null,
     leg.takeoff || leg.landing ? h('div', {}, h('span', { class: 'pf' }, [leg.takeoff ? 'Decollo' : null, leg.landing ? 'Atterraggio' : null].filter(Boolean).join(' + '))) : null,
-    leg.note ? h('div', { class: 'info' }, leg.note) : null,
-    leg.info ? h('div', { class: 'info' }, `Info: ${leg.info}`) : null,
-    leg.crew ? h('details', {}, h('summary', {}, `▸ Equipaggio${leg.crew.shared ? ' (come prima tratta)' : ''}`), crewBlock(leg.crew, state.data.pilot?.code)) : null);
+    leg.note ? h('div', { class: 'info' }, leg.note) : null);
 }
 
 const STATE_TXT = {
@@ -117,9 +108,6 @@ function body(day) {
   }
   if (day.simFt && day.simFt !== '0:00') cells.push(h('div', {}, h('small', { class: 'muted' }, 'SIM FT'), h('b', {}, day.simFt)));
   if (cells.length) parts.push(h('div', { class: 'grid4' }, cells));
-  const ftl = state.ftl?.byDate.get(day.date);
-  for (const d of ftl?.duties ?? []) if (d.fdp) parts.push(fdpCard(d, day));
-  for (const r of ftl?.rests ?? []) parts.push(restCard(r));
   if (tl.events.length) parts.push(h('p', { class: 'muted', style: 'margin:10px 4px 0;font-size:13px' }, 'Orari UTC (Z) in evidenza, ora locale dell’aeroporto sotto.'));
   const first = day.seq?.[0];
   if (first && !['pickup', 'ci'].includes(first.t)) parts.push(h('p', { class: 'muted', style: 'margin:6px 4px 0;font-size:13px' }, '↤ Giorno X: contiene la parte finale del servizio iniziato il giorno prima.'));
@@ -136,10 +124,18 @@ function body(day) {
     parts.push(mini);
     requestAnimationFrame(() => createMap(mini, { routes: geo.routes, airports: geo.airports, height: 170, interactive: false }));
   }
+  const homeRow = (ciMs, apt, refDate) => {
+    const t = times(ciMs - homeTravelMin() * 60000, apt, refDate);
+    return h('div', { class: 'ev home' }, h('span', { class: 'lb' }, '🏠 Partenza da casa', h('small', { class: 'muted' }, `${homeTravelMin()} min prima`)),
+      h('span', { class: 'tm' }, h('b', {}, t ? utcText(t) : '—'), h('div', { class: 'loc', style: 'font-size:13px' }, t?.loc ? locText(t) : '')));
+  };
   for (const e of tl.events) {
     if (e.t === 'leg') parts.push(legCard(e, day));
     else if (e.t === 'pickup') parts.push(evRow('Pick up', day.checkIn?.airport ?? day.airport, e.ms));
-    else parts.push(evRow(e.label === 'C/I' || e.t === 'ci' ? (e.label ?? 'C/I') : (e.label ?? 'C/O'), e.airport, e.ms));
+    else {
+      if (e.t === 'ci' && e.airport === (state.data.pilot?.base ?? 'MXP')) parts.push(homeRow(e.ms, e.airport, ref));
+      parts.push(evRow(e.label === 'C/I' || e.t === 'ci' ? (e.label ?? 'C/I') : (e.label ?? 'C/O'), e.airport, e.ms));
+    }
   }
   if (day.kind !== 'off' && day.kind !== 'blank' && tl.events.length && !tl.events.some((e) => e.t === 'co')) parts.push(h('p', { class: 'muted', style: 'margin:6px 4px 0;font-size:13px' }, 'Il servizio continua il giorno dopo ↦'));
 
@@ -148,6 +144,9 @@ function body(day) {
     parts.push(h('div', { class: 'card hotel' }, h('h2', {}, `Hotel ${hot.code}${hot.airport ? ` · ${hot.airport}` : ''}`), h('div', {}, hot.name ?? hot.code), hot.phone ? h('div', {}, h('a', { href: `tel:${hot.phone.replace(/[^\d+]/g, '')}` }, hot.phone)) : null));
   }
   if (day.notes.length) parts.push(h('div', { class: 'card' }, h('h2', {}, 'Note'), day.notes.map((n) => h('div', {}, n))));
+  const ftl = state.ftl?.byDate.get(day.date);
+  for (const d of ftl?.duties ?? []) if (d.fdp) parts.push(fdpCard(d, day));
+  for (const r of ftl?.rests ?? []) parts.push(restCard(r));
   if (day.kind === 'off' && !tl.events.length) parts.push(h('p', { class: 'muted', style: 'text-align:center;margin-top:30px' }, 'Giorno di riposo'));
   if (day.kind === 'blank') parts.push(h('p', { class: 'muted', style: 'text-align:center;margin-top:30px' }, 'Nessun servizio indicato nel PDF'));
   return parts;
