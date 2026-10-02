@@ -78,7 +78,7 @@ export const KINDS = {
   sim: { label: 'Simulatore', cls: 'k-sim' },
   off: { label: 'Riposo', cls: 'k-off' },
   vacation: { label: 'Ferie', cls: 'k-vac' },
-  rest: { label: 'Riposo fuori sede', cls: 'k-off' },
+  rest: { label: 'Giorno X (nessun servizio)', cls: 'k-off' },
   blank: { label: 'Nessun servizio', cls: 'k-blank' },
   other: { label: 'Altro', cls: 'k-blank' },
 };

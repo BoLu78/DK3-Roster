@@ -64,7 +64,7 @@ function dayRow(day, today) {
   const dt = h('div', { class: 'dt' }, h('div', { class: 'n' }, Number(day.date.slice(8))), h('div', { class: 'w' }, DOW_SHORT[dowOf(day.date)]));
   let main;
   if (['off', 'blank', 'rest'].includes(day.kind) && !day.seq?.length) {
-    main = h('div', { class: 'main' }, { off: 'Riposo', rest: 'Riposo fuori sede', blank: '—' }[day.kind], day.hotel ? h('span', { class: 'muted', style: 'margin-left:10px' }, `🛏 ${day.hotel.code} ${day.hotel.airport ?? ''}`) : null);
+    main = h('div', { class: 'main' }, { off: 'Riposo', rest: 'Giorno X · nessun nuovo servizio', blank: '—' }[day.kind], day.hotel ? h('span', { class: 'muted', style: 'margin-left:10px' }, `🛏 ${day.hotel.code} ${day.hotel.airport ?? ''}`) : null);
   } else {
     const s = daySummary(day);
     main = h('div', { class: 'main' },

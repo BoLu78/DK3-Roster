@@ -103,4 +103,6 @@ Mancano:
   gli eventi si leggono nell'ordine del PDF e i servizi si ricostruiscono da C/I a C/O (`buildDuties`).
 - Giorni oltre la fine del periodo (es. 1 settembre nel PDF di agosto): tenuti a parte (`spill`).
 - Ferie (HOL / "Vac"), "X" (riposo fuori sede o coda di un servizio), "Take-off, Landing" per tratta.
-- Da verificare con l'utente: significato esatto di "X" e di "Take-off, Landing".
+- "X" (confermato dall'utente): giorno "sporcato" dalla coda di un servizio iniziato il giorno prima
+  (es. 18 set: il duty finisce alle 05:50Z). Senza eventi = nessun nuovo servizio.
+- Da verificare: "Take-off, Landing" = decollo e/o atterraggio fatti dall'utente su quella tratta.
