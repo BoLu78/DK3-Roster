@@ -1,0 +1,16 @@
+# PDF dei turni e valori attesi dei test: dati personali, mai su GitHub
+samples/
+*.pdf
+*.ics
+
+# macOS
+.DS_Store
+
+# Editor / strumenti
+.vscode/
+.idea/
+.claude/settings.local.json
+
+# Node (serve solo per i test, nessuna dipendenza prevista)
+node_modules/
+npm-debug.log*
