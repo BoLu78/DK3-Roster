@@ -3,6 +3,8 @@ import { h, fmtMonth, mmToHm, todayIso, fmtDayShort, daysInMonth } from './util.
 import { state, saveSettings, monthDays, monthKeys } from './state.js';
 import { monthSummary, rolling, LIMITS } from '../src/stats.js';
 import { checkTotals } from '../src/parser.js';
+import { fmtHM as hmm } from '../src/ftl.js';
+import { actions } from './state.js';
 
 function meter(value, limit) {
   const pct = Math.min(100, (value / limit) * 100);
@@ -24,6 +26,22 @@ export function renderStats(view) {
   const refDate = mode === 'today' && inMonth ? today : monthEnd;
   const parts = [];
 
+  const ftl = state.ftl;
+  if (ftl) {
+    const mine = ftl.issues.filter((i) => i.date.startsWith(key) && i.severity !== 'info');
+    const bad = mine.filter((i) => i.severity === 'bad').length;
+    const free = ftl.freeByMonth[key];
+    const peak = (k, label) => {
+      const c = ftl.cumulative[k];
+      return h('div', { style: 'margin:8px 0' }, h('div', { class: 'row spread' }, h('span', {}, label), h('span', {}, h('b', {}, hmm(c.min)), h('span', { class: 'muted' }, ` / ${hmm(c.limit)}`))), meter(c.min, c.limit));
+    };
+    parts.push(h('div', { class: 'card' }, h('h2', {}, 'Controllo FTL (OMA-A cap. 7)'),
+      h('div', { style: 'margin-bottom:6px' }, mine.length ? h('b', { class: bad ? 'bad' : '', style: bad ? '' : 'color:var(--warn)' }, `${bad} da correggere · ${mine.length - bad} da osservare`) : h('b', { class: 'ok' }, 'Nessun problema trovato'), h('span', { class: 'muted' }, ' in questo mese')),
+      mine.map((i) => h('button', { class: `issue ${i.severity}`, onclick: () => actions.openDay(i.date) }, h('span', { class: 'dot' }), h('span', {}, i.text, h('small', {}, i.date.split('-').reverse().join('/'))))),
+      free ? h('div', { class: 'cmp' }, h('span', {}, 'Giorni liberi (minimo 7 al mese)'), h('b', { class: free.free >= 7 ? 'ok' : 'bad' }, `${free.free}`)) : null,
+      h('div', { style: 'margin-top:10px' }, peak('duty7', 'Duty 7 giorni (picco)'), peak('duty14', 'Duty 14 giorni (picco)'), peak('duty28', 'Duty 28 giorni (picco)')),
+      h('p', { class: 'muted', style: 'font-size:12px;margin-top:8px' }, 'Il duty è dal C/I al C/O (stand-by al 25%, reserve esclusa). Il controllo copre i PDF importati e non sostituisce il manuale.')));
+  }
   parts.push(h('div', { class: 'card' }, h('h2', {}, `Mese · ${fmtMonth(key)}`),
     h('div', { class: 'row spread' },
       h('div', {}, h('div', { class: 'big-num' }, mmToHm(s.ft)), h('small', {}, 'Flight time (FT)')),

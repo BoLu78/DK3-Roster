@@ -9,16 +9,17 @@ export const state = {
   imports: [],
   data: { days: new Map(), airports: {}, periods: [], recurrent: [], pilot: null },
   pending: new Map(), // date -> modifica non ancora vista
+  ftl: null, // risultato del controllo FTL (src/ftl.js)
   tab: 'list',
   month: null,
   settings: loadSettings(),
 };
 
 // Le schermate chiamano queste funzioni; app.js le collega.
-export const actions = { go() {}, openDay() {}, closeSheet() {}, refresh() {}, toast() {}, pickPdf() {}, showImportResult() {} };
+export const actions = { ftlChanged() {}, go() {}, openDay() {}, closeSheet() {}, refresh() {}, toast() {}, pickPdf() {}, showImportResult() {} };
 
 function loadSettings() {
-  const base = { warn: DEFAULT_THRESHOLDS.warn, critical: DEFAULT_THRESHOLDS.critical, include787: false, icsScope: 'all', icsAlarm: 0, statsUntil: 'auto' };
+  const base = { warn: DEFAULT_THRESHOLDS.warn, critical: DEFAULT_THRESHOLDS.critical, include787: false, icsScope: 'all', icsAlarm: 0, statsUntil: 'auto', ftlCrew: {} };
   try {
     return { ...base, ...JSON.parse(storage.getItem(SETTINGS_KEY) ?? '{}') };
   } catch {

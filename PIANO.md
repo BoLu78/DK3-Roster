@@ -120,3 +120,19 @@ filtro mese / anno / tutto, zoom con le dita, conteggi (settori, aeroporti, paes
 Tutto offline: contorni dei continenti in `js/worldmap.js` (Natural Earth, dominio pubblico, generato da
 `tools/make-worldmap.mjs`), coordinate degli aeroporti in `src/airports-geo.js`. Un aeroporto senza coordinate
 non viene disegnato e viene segnalato sotto la mappa: basta aggiungere una riga.
+
+### Controllo FTL (2 ott 2026)
+
+`src/ftl.js` confronta ogni servizio con le regole dell'OMA-A cap. 7 (solo i numeri, non il testo del manuale;
+il PDF del manuale non è nel repository).
+
+- FDP: effettivo (C/I → block-in ultimo volo), massimo da tabella (ora di riferimento, settori), estensione "Ext",
+  stato di acclimatazione B/D/X, discrezione del comandante (+2 h, +3 h con equipaggio aumentato) solo come riferimento.
+- Equipaggio cockpit scelto per servizio (2 standard, 3 o 4): sopra i 2 piloti si applica il riposo in volo
+  (B737 classe 2: 15 h / 16 h; max 3 settori). La scelta resta sul telefono (impostazioni).
+- Riposi minimi (a base 12 h, fuori base 10 h, 14 h con fuso ≥4 h), cumulativi duty 7/14/28 giorni (stand-by al 25%),
+  giorni liberi (≥7 al mese), recuperi estesi (36 h con 2 notti locali, max 168 h), stand-by ≤16 h, reserve ≤3 giorni,
+  servizi notte / presto / tardi.
+- Verificato con lo screenshot dell'app EASA FTL: servizio 25 set (inizio 03:20Z) → massimo 12:15 e discrezione 14:15, identici.
+- Non controllato: ritardi reali, discrezione effettiva, alloggio idoneo a base, compensazione fusi ≥4 h oltre la segnalazione.
+- Da capire: il flag E_FDP del roster (l'8 ott ha FDP 12:00 con massimo 12:30, quindi dentro il limite).

@@ -7,6 +7,7 @@ import { routeOf, flightNumbers } from '../src/ics.js';
 import { monthSummary, hhmmToMinutes } from '../src/stats.js';
 import { evaluateRecurrent } from '../src/recurrent.js';
 import { showImportSheet } from './views-more.js';
+import { fmtHM } from '../src/ftl.js';
 
 export const arrowRoute = (day) => routeOf(day).split('-').join(' → ');
 
@@ -57,6 +58,13 @@ export function daySummary(day) {
   return out;
 }
 
+// FDP effettivo / massimo del servizio che inizia in questo giorno
+export function ftlChip(day) {
+  const d = state.ftl?.byDate.get(day.date)?.duties.find((x) => x.fdp && x.dates[0] === day.date);
+  if (!d || d.status == null) return null;
+  return h('span', { class: `ftl ftl-${d.status}` }, `FDP ${fmtHM(d.fdp.min)} / ${fmtHM(d.limits.used)}${d.status === 'ext' ? ' Ext' : ''}`);
+}
+
 function dayRow(day, today) {
   const k = kindOf(day);
   const changed = state.pending.has(day.date);
@@ -70,7 +78,7 @@ function dayRow(day, today) {
     main = h('div', { class: 'main' },
       h('div', { class: 'l1' }, h('span', { class: 'route' }, s.title), day.ft && day.kind === 'flight' ? h('span', { class: 'ft' }, `FT ${day.ft.replace(/^0/, '')}`) : null),
       s.timeline ? h('div', { class: 'l2' }, s.timeline.utc, s.timeline.loc ? h('span', { class: 'loc' }, `  ·  ${s.timeline.loc}`) : null) : null,
-      h('div', { class: 'l3' }, s.extra.filter(Boolean).map((x) => h('span', {}, x)), day.hotel ? h('span', {}, `🛏 ${day.hotel.code} ${day.hotel.airport ?? ''}`) : null, day.flags.includes('E_FDP') ? h('span', {}, 'E_FDP') : null));
+      h('div', { class: 'l3' }, s.extra.filter(Boolean).map((x) => h('span', {}, x)), ftlChip(day), day.hotel ? h('span', {}, `🛏 ${day.hotel.code} ${day.hotel.airport ?? ''}`) : null, day.flags.includes('E_FDP') ? h('span', {}, 'E_FDP') : null));
   }
   return h('button', { class: cls, onclick: () => actions.openDay(day.date), 'aria-label': day.date }, dt, h('div', { class: 'bar' }), main);
 }

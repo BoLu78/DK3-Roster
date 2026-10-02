@@ -1,8 +1,9 @@
 // Dettaglio di un giorno di servizio.
 import { h, fmtDayShort, DOW_SHORT, dowOf, kindOf, titleCase } from './util.js';
-import { state, actions } from './state.js';
+import { state, actions, saveSettings } from './state.js';
+import { fmtHM } from '../src/ftl.js';
 import { times, timeEl, utcText, locText } from './timefmt.js';
-import { buildDayTimeline, durationMin, fmtDuration, utcOffsetHours } from '../src/timeline.js';
+import { buildDayTimeline, durationMin, fmtDuration, fmtUtc, utcOffsetHours } from '../src/timeline.js';
 import { arrowRoute } from './views-list.js';
 import { collectRoutes } from '../src/geo.js';
 import { createMap } from './map.js';
@@ -44,6 +45,57 @@ function legCard(item, day) {
     leg.crew ? h('details', {}, h('summary', {}, `▸ Equipaggio${leg.crew.shared ? ' (come prima tratta)' : ''}`), crewBlock(leg.crew, state.data.pilot?.code)) : null);
 }
 
+const STATE_TXT = {
+  local: 'acclimatato all’ora locale di partenza',
+  B: 'acclimatato all’ora di base (B)',
+  D: 'acclimatato all’ora locale di destinazione (D)',
+  X: 'acclimatazione sconosciuta (X): tabella ridotta',
+};
+
+function utcRange(startMs, min) {
+  return `${fmtUtc(startMs)} – ${fmtUtc(startMs + min * 60000)} UTC`;
+}
+
+// Riquadro FDP come nell'app EASA: effettivo, massimo, discrezione del comandante (solo riferimento) e margini
+function fdpCard(d, day) {
+  const f = d.fdp;
+  const L = d.limits;
+  const stat = d.status;
+  const setCrew = (n) => {
+    if (n === 2) delete state.settings.ftlCrew[d.key];
+    else state.settings.ftlCrew[d.key] = n;
+    saveSettings();
+    actions.ftlChanged(day.date);
+  };
+  const seg = h('div', { class: 'crewseg' }, h('span', { class: 'muted' }, 'Piloti'), h('div', { class: 'seg' }, [2, 3, 4].map((n) => h('button', { 'aria-pressed': String(d.crew === n), onclick: () => setCrew(n) }, n === 2 ? '2 (standard)' : String(n)))));
+  const kindTxt = { basic: 'tabella base', ext: 'con estensione (Ext)', inflight: 'con riposo in volo' }[d.limitKind] ?? 'tabella base';
+  const sub = `${f.sectors} ${f.sectors === 1 ? 'settore' : 'settori'}, inizio ${String(Math.floor(d.refMinute / 60)).padStart(2, '0')}:${String(d.refMinute % 60).padStart(2, '0')} ora di riferimento`;
+  const limitMin = stat === 'ext' ? L.ext : L.used;
+  const rows = [
+    h('div', { class: 'fdp-row' }, h('span', {}, 'Effettivo', h('small', {}, utcRange(f.startMs, f.min))), h('b', {}, `${fmtHM(f.min)} h`)),
+    limitMin != null ? h('div', { class: 'fdp-row' }, h('span', {}, 'Massimo', h('small', {}, `${utcRange(f.startMs, limitMin)} · ${kindTxt}`)), h('b', {}, `${fmtHM(limitMin)} h`)) : h('div', { class: 'fdp-row' }, h('span', {}, 'Massimo'), h('b', {}, 'n.d.')),
+    L.discretion != null ? h('div', { class: 'fdp-row' }, h('span', {}, 'Discrezione del comandante', h('small', {}, `${utcRange(f.startMs, L.discretion)} · solo riferimento`)), h('b', {}, `${fmtHM(L.discretion)} h`)) : null,
+    d.gapMin != null ? h('div', { class: `fdp-row gap ${stat}` }, h('span', {}, 'Margine al massimo'), h('b', {}, `${d.gapMin < 0 ? '−' : ''}${fmtHM(Math.abs(d.gapMin))} h`)) : null,
+    L.discretion != null ? h('div', { class: `fdp-row gap ${f.min > L.discretion ? 'over' : 'ok'}` }, h('span', {}, 'Margine alla discrezione'), h('b', {}, `${f.min > L.discretion ? '−' : ''}${fmtHM(Math.abs(L.discretion - f.min))} h`)) : null,
+  ];
+  const tags = d.tags.map((t) => h('span', { class: 'chip warn' }, { presto: 'Inizio presto', tardi: 'Fine tardi', notte: 'Servizio notturno' }[t] ?? t));
+  if (day.flags.includes('E_FDP')) tags.push(h('span', { class: 'chip' }, 'E_FDP (roster)'));
+  return h('div', { class: 'card' }, h('h2', {}, `FDP cockpit${d.dates[0] !== day.date ? ` · servizio iniziato il ${d.dates[0].slice(8)}/${d.dates[0].slice(5, 7)}` : ''}`),
+    seg, rows,
+    h('p', { class: 'muted', style: 'font-size:12.5px;margin-top:8px' }, `${sub} · ${STATE_TXT[d.acclimatisation.state]}${d.crew >= 3 && f.sectors > 3 ? ' · riposo in volo non applicabile (max 3 settori)' : ''}.`),
+    d.notes.length ? h('div', { class: 'muted', style: 'font-size:13px' }, d.notes.join(' · ')) : null,
+    tags.length ? h('div', { class: 'tagrow' }, tags) : null,
+    h('p', { class: 'muted', style: 'font-size:12px;margin-top:8px' }, 'Indicazione calcolata con le tabelle dell’OMA-A cap. 7: fa fede il manuale.'));
+}
+
+function restCard(r) {
+  const cls = r.status === 'over' ? 'over' : r.status === 'warn' ? 'warn' : 'ok';
+  return h('div', { class: 'card' }, h('h2', {}, 'Riposo prima di questo servizio'),
+    h('div', { class: 'fdp-row' }, h('span', {}, 'Effettivo', h('small', {}, `${r.atBase ? 'a base' : 'fuori base'}`)), h('b', {}, `${fmtHM(r.restMin)} h`)),
+    h('div', { class: 'fdp-row' }, h('span', {}, 'Minimo richiesto', h('small', {}, r.why.join(' · '))), h('b', {}, `${fmtHM(r.needMin)} h`)),
+    h('div', { class: `fdp-row gap ${cls}` }, h('span', {}, 'Margine'), h('b', {}, `${r.restMin < r.needMin ? '−' : ''}${fmtHM(Math.abs(r.restMin - r.needMin))} h`)));
+}
+
 function body(day) {
   const k = kindOf(day);
   const tl = buildDayTimeline(day);
@@ -65,6 +117,9 @@ function body(day) {
   }
   if (day.simFt && day.simFt !== '0:00') cells.push(h('div', {}, h('small', { class: 'muted' }, 'SIM FT'), h('b', {}, day.simFt)));
   if (cells.length) parts.push(h('div', { class: 'grid4' }, cells));
+  const ftl = state.ftl?.byDate.get(day.date);
+  for (const d of ftl?.duties ?? []) if (d.fdp) parts.push(fdpCard(d, day));
+  for (const r of ftl?.rests ?? []) parts.push(restCard(r));
   if (tl.events.length) parts.push(h('p', { class: 'muted', style: 'margin:10px 4px 0;font-size:13px' }, 'Orari UTC (Z) in evidenza, ora locale dell’aeroporto sotto.'));
   const first = day.seq?.[0];
   if (first && !['pickup', 'ci'].includes(first.t)) parts.push(h('p', { class: 'muted', style: 'margin:6px 4px 0;font-size:13px' }, '↤ Giorno X: contiene la parte finale del servizio iniziato il giorno prima.'));

@@ -236,3 +236,19 @@ input[type=number] { width: 72px; text-align: right; }
 .mapctl button { width: 38px; height: 38px; border-radius: 10px; background: color-mix(in srgb, var(--card) 90%, transparent); font-size: 20px; font-weight: 600; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
 .ap { display: flex; width: 100%; align-items: baseline; gap: 6px; padding: 9px 0; border-top: 1px solid var(--sep); text-align: left; }
 .ap:first-of-type { border-top: 0; } .ap .cnt { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* controllo FTL */
+.ftl { font-weight: 700; font-variant-numeric: tabular-nums; }
+.ftl-ok { color: var(--ok); } .ftl-warn, .ftl-ext { color: var(--warn); } .ftl-over { color: var(--danger); }
+.fdp-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 9px 0; border-top: 1px solid var(--sep); font-variant-numeric: tabular-nums; }
+.fdp-row:first-of-type { border-top: 0; } .fdp-row b { font-size: 17px; white-space: nowrap; } .fdp-row small { display: block; color: var(--muted); font-size: 12.5px; }
+.fdp-row.gap b { font-size: 19px; }
+.fdp-row.gap.ok b { color: var(--ok); } .fdp-row.gap.warn b, .fdp-row.gap.ext b { color: var(--warn); } .fdp-row.gap.over b { color: var(--danger); }
+.crewseg { display: flex; align-items: center; gap: 8px; margin: 2px 0 10px; font-size: 14px; }
+.crewseg .seg { flex: 1; margin: 0; }
+.tagrow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.tagrow .chip.warn { background: var(--k-standby-bg); color: var(--warn); }
+.issue { display: flex; gap: 8px; padding: 8px 0; border-top: 1px solid var(--sep); text-align: left; width: 100%; font-size: 14.5px; }
+.issue:first-of-type { border-top: 0; } .issue .dot { flex: none; width: 10px; height: 10px; border-radius: 50%; margin-top: 6px; background: var(--muted); }
+.issue.bad .dot { background: var(--danger); } .issue.warn .dot { background: var(--warn); }
+.issue small { display: block; color: var(--muted); }

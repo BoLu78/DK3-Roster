@@ -3,6 +3,7 @@ import { h, fmtMonth, todayIso } from './util.js';
 import { state, actions, hasData, monthKeys } from './state.js';
 import { allImports, addImport } from './db.js';
 import { mergeImports, pendingChangeDates } from '../src/merge.js';
+import { analyze } from '../src/ftl.js';
 import { readRoster, ImportError } from './importer.js';
 import { renderList, monthStep } from './views-list.js';
 import { renderCalendar } from './views-calendar.js';
@@ -26,10 +27,25 @@ const ICONS = {
 const TABS = [['list', 'Turni'], ['cal', 'Calendario'], ['map', 'Mappa'], ['stats', 'Statistiche'], ['exp', 'Scadenze'], ['more', 'Altro']];
 
 // ---------------------------------------------------------------- dati
+function computeFtl() {
+  try {
+    state.ftl = analyze([...state.data.days.values()], { base: state.data.pilot?.base ?? 'MXP', airports: state.data.airports, crewByDuty: state.settings.ftlCrew ?? {} });
+  } catch (e) {
+    console.error('Controllo FTL non riuscito', e);
+    state.ftl = null;
+  }
+}
+actions.ftlChanged = (date) => {
+  computeFtl();
+  if (date) showDetail(date);
+  render();
+};
+
 async function load() {
   state.imports = await allImports();
   state.data = mergeImports(state.imports);
   state.pending = pendingChangeDates(state.imports);
+  computeFtl();
   const keys = monthKeys();
   if (!keys.includes(state.month)) {
     const t = todayIso().slice(0, 7);
