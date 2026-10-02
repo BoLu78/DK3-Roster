@@ -2,6 +2,7 @@
 import { h, fmtDayShort, DOW_SHORT, dowOf, kindOf, titleCase } from './util.js';
 import { state, actions, saveSettings, homeTravelMin } from './state.js';
 import { fmtHM } from '../src/ftl.js';
+import { eventName } from '../src/labels.js';
 import { times, timeEl, utcText, locText } from './timefmt.js';
 import { buildDayTimeline, durationMin, fmtDuration, fmtUtc, utcOffsetHours } from '../src/timeline.js';
 import { arrowRoute } from './views-list.js';
@@ -112,7 +113,7 @@ function body(day) {
   const first = day.seq?.[0];
   if (first && !['pickup', 'ci'].includes(first.t)) parts.push(h('p', { class: 'muted', style: 'margin:6px 4px 0;font-size:13px' }, '↤ Giorno X: contiene la parte finale del servizio iniziato il giorno prima.'));
 
-  // eventi nell'ordine del PDF: pick up, C/I, tratte, C/O
+  // eventi nell'ordine del PDF: pick up, check-in, tratte, check-out
   const evRow = (label, apt, ms) => {
     const t = times(ms, apt, ref);
     return h('div', { class: 'ev' }, h('span', { class: 'lb' }, label, apt ? h('small', { class: 'muted' }, apt) : null),
@@ -134,7 +135,7 @@ function body(day) {
     else if (e.t === 'pickup') parts.push(evRow('Pick up', day.checkIn?.airport ?? day.airport, e.ms));
     else {
       if (e.t === 'ci' && e.airport === (state.data.pilot?.base ?? 'MXP')) parts.push(homeRow(e.ms, e.airport, ref));
-      parts.push(evRow(e.label === 'C/I' || e.t === 'ci' ? (e.label ?? 'C/I') : (e.label ?? 'C/O'), e.airport, e.ms));
+      parts.push(evRow(eventName(e.label, e.t === 'ci' ? 'C/I' : 'C/O'), e.airport, e.ms));
     }
   }
   if (day.kind !== 'off' && day.kind !== 'blank' && tl.events.length && !tl.events.some((e) => e.t === 'co')) parts.push(h('p', { class: 'muted', style: 'margin:6px 4px 0;font-size:13px' }, 'Il servizio continua il giorno dopo ↦'));

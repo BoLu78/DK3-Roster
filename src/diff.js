@@ -16,10 +16,10 @@ export function describeChange(a, b) {
   if (a.kind !== b.kind || a.code !== b.code) lines.push(`Tipo: ${dayLabel(a)} → ${dayLabel(b)}`);
   if (a.pickup !== b.pickup) lines.push(`Pick up: ${fmtTime(a.pickup)} → ${fmtTime(b.pickup)}`);
   if (a.checkIn?.time !== b.checkIn?.time || a.checkIn?.airport !== b.checkIn?.airport) {
-    lines.push(`C/I: ${a.checkIn ? `${a.checkIn.airport} ${fmtTime(a.checkIn.time)}` : '—'} → ${b.checkIn ? `${b.checkIn.airport} ${fmtTime(b.checkIn.time)}` : '—'}`);
+    lines.push(`Check-in: ${a.checkIn ? `${a.checkIn.airport} ${fmtTime(a.checkIn.time)}` : '—'} → ${b.checkIn ? `${b.checkIn.airport} ${fmtTime(b.checkIn.time)}` : '—'}`);
   }
   if (a.checkOut?.time !== b.checkOut?.time || a.checkOut?.airport !== b.checkOut?.airport) {
-    lines.push(`C/O: ${a.checkOut ? `${a.checkOut.airport} ${fmtTime(a.checkOut.time)}` : '—'} → ${b.checkOut ? `${b.checkOut.airport} ${fmtTime(b.checkOut.time)}` : '—'}`);
+    lines.push(`Check-out: ${a.checkOut ? `${a.checkOut.airport} ${fmtTime(a.checkOut.time)}` : '—'} → ${b.checkOut ? `${b.checkOut.airport} ${fmtTime(b.checkOut.time)}` : '—'}`);
   }
   const wa = a.window ? `${fmtTime(a.window.start)}-${fmtTime(a.window.end)}` : '';
   const wb = b.window ? `${fmtTime(b.window.start)}-${fmtTime(b.window.end)}` : '';

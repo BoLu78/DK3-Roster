@@ -92,7 +92,7 @@ export function renderMore(view) {
         download(`DK3-Roster${m ? '-' + m : ''}.ics`, text, 'text/calendar');
         actions.toast(`${count} eventi pronti`);
       } }, 'Esporta .ics'),
-      h('p', { class: 'muted', style: 'font-size:13px;margin-top:8px' }, 'Gli eventi vanno da C/I a C/O in orario UTC: il Calendario li mostra nell’ora locale del telefono. L’elenco dei dettagli (orari UTC e locali, FT, DT, hotel) è nelle note.')));
+      h('p', { class: 'muted', style: 'font-size:13px;margin-top:8px' }, 'Gli eventi vanno dal check-in al check-out in orario UTC: il Calendario li mostra nell’ora locale del telefono. L’elenco dei dettagli (orari UTC e locali, FT, DT, hotel) è nelle note.')));
   }
 
   // partenza da casa

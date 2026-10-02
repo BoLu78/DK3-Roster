@@ -8,6 +8,7 @@ import { monthSummary, hhmmToMinutes } from '../src/stats.js';
 import { evaluateRecurrent } from '../src/recurrent.js';
 import { showImportSheet } from './views-more.js';
 import { fmtHM } from '../src/ftl.js';
+import { eventName } from '../src/labels.js';
 
 export const arrowRoute = (day) => routeOf(day).split('-').join(' → ');
 
@@ -38,7 +39,7 @@ export function daySummary(day) {
     const first = day.seq?.[0];
     const hasCo = tl.events.some((e) => e.t === 'co');
     const hasCi = tl.events.some((e) => e.t === 'ci');
-    out.title = day.kind === 'sim' ? 'Simulatore' : arrowRoute(day) || (hasCi ? `C/I ${day.checkIn.airport}` : 'Servizio');
+    out.title = day.kind === 'sim' ? 'Simulatore' : arrowRoute(day) || (hasCi ? `Check-in ${day.checkIn.airport}` : 'Servizio');
     if (tl.startMs != null && tl.endMs != null) {
       if (tl.endMs > tl.startMs) out.timeline = rng(tl.startMs, airportAt(tl, tl.startMs, base), tl.endMs, airportAt(tl, tl.endMs, base));
       else {
@@ -115,7 +116,7 @@ export function renderList(view) {
       h('div', { class: 'lbl' }, `Prossimo servizio · ${when} · ${fmtDayShort(next.date)}`),
       h('div', { class: 'big' }, s.title),
       s.timeline ? h('div', {}, s.timeline.utc, s.timeline.loc ? h('span', { class: 'loc' }, `  ·  ${s.timeline.loc}`) : null) : null,
-      ci ? h('div', { class: 'loc' }, `${next.checkIn.label ?? 'C/I'} ${utcText(ci)}${ci.loc ? ` (${locText(ci)})` : ''}`) : null));
+      ci ? h('div', { class: 'loc' }, `${eventName(next.checkIn.label, 'C/I')} ${utcText(ci)}${ci.loc ? ` (${locText(ci)})` : ''}`) : null));
   }
 
   const rec = evaluateRecurrent(state.data.recurrent, today, { warn: state.settings.warn, critical: state.settings.critical })

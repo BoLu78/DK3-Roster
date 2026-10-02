@@ -1,4 +1,5 @@
 // Export calendario .ics (RFC 5545).
+import { eventName } from './labels.js';
 import { buildDayTimeline, buildDuties, fmtUtc, localTime } from './timeline.js';
 
 function icsDate(ms) {
@@ -61,12 +62,12 @@ function describeDuty(duty, airports, refDate) {
     return `${fmtUtc(ms)}Z${loc ? ` (${loc.time} locale${loc.dayDelta ? ` ${loc.dayDelta > 0 ? '+' : ''}${loc.dayDelta}` : ''})` : ''}`;
   };
   if (duty.pickupMs) lines.push(`Pick up ${fmtUtc(duty.pickupMs)}Z`);
-  if (duty.ci) lines.push(`${duty.ci.label ?? 'C/I'} ${duty.ci.airport ?? ''} ${hm(duty.ci.ms, duty.ci.airport)}`);
+  if (duty.ci) lines.push(`${eventName(duty.ci.label, 'C/I')} ${duty.ci.airport ?? ''} ${hm(duty.ci.ms, duty.ci.airport)}`);
   for (const { leg, depMs, arrMs } of duty.legs) {
     const name = leg.kind === 'flight' ? `${leg.airline ?? ''}${leg.number}` : leg.code ?? '';
     lines.push(`${name} ${leg.dep ?? ''} ${depMs ? hm(depMs, leg.dep) : ''} → ${leg.arr ?? ''} ${arrMs ? hm(arrMs, leg.arr) : ''}${leg.ac ? ` · ${leg.ac}` : ''}`.replace(/\s+/g, ' ').trim());
   }
-  if (duty.co) lines.push(`${duty.co.label ?? 'C/O'} ${duty.co.airport ?? ''} ${hm(duty.co.ms, duty.co.airport)}`);
+  if (duty.co) lines.push(`${eventName(duty.co.label, 'C/O')} ${duty.co.airport ?? ''} ${hm(duty.co.ms, duty.co.airport)}`);
   if (duty.ft || duty.dt) lines.push(`FT ${duty.ft ?? '—'} · DT ${duty.dt ?? '—'}`);
   if (duty.hotel) lines.push(`Hotel ${duty.hotel.name ?? duty.hotel.code}${duty.hotel.phone ? ` ${duty.hotel.phone}` : ''}`);
   return lines.join('\n');
@@ -84,7 +85,7 @@ const isoDate = (ms) => new Date(ms).toISOString().slice(0, 10);
 // options.scope: 'flights' (solo voli) | 'all' (voli, trasferimenti, sim, stand-by)
 // options.from / options.to: date ISO (compresi) per limitare al mese scelto
 // options.alarmMinutes: promemoria prima dell'inizio (0 = nessuno)
-// I servizi si ricostruiscono da C/I a C/O anche se passano la mezzanotte.
+// I servizi si ricostruiscono dal check-in al check-out anche se passano la mezzanotte.
 export function buildIcs(days, airports, options = {}, nowMs = Date.now()) {
   const { scope = 'all', from = null, to = null, alarmMinutes = 0 } = options;
   const out = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//DK3 Roster//IT', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:DK3 Roster'];

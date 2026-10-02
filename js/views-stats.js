@@ -40,7 +40,7 @@ export function renderStats(view) {
       mine.map((i) => h('button', { class: `issue ${i.severity}`, onclick: () => actions.openDay(i.date) }, h('span', { class: 'dot' }), h('span', {}, i.text, h('small', {}, i.date.split('-').reverse().join('/'))))),
       free ? h('div', { class: 'cmp' }, h('span', {}, 'Giorni liberi (minimo 7 al mese)'), h('b', { class: free.free >= 7 ? 'ok' : 'bad' }, `${free.free}`)) : null,
       h('div', { style: 'margin-top:10px' }, peak('duty7', 'Duty 7 giorni (picco)'), peak('duty14', 'Duty 14 giorni (picco)'), peak('duty28', 'Duty 28 giorni (picco)')),
-      h('p', { class: 'muted', style: 'font-size:12px;margin-top:8px' }, 'Il duty è dal C/I al C/O (stand-by al 25%, reserve esclusa). Il controllo copre i PDF importati e non sostituisce il manuale.')));
+      h('p', { class: 'muted', style: 'font-size:12px;margin-top:8px' }, 'Il duty è dal check-in al check-out (stand-by al 25%, reserve esclusa). Il controllo copre i PDF importati e non sostituisce il manuale.')));
   }
   parts.push(h('div', { class: 'card' }, h('h2', {}, `Mese · ${fmtMonth(key)}`),
     h('div', { class: 'row spread' },
