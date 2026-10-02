@@ -5,6 +5,7 @@ import { checkTotals } from '../src/parser.js';
 import { buildIcs } from '../src/ics.js';
 import { deleteImport, clearImports, replaceImports, putImport, allImports } from './db.js';
 import { VERSION } from './version.js';
+import { refreshWeather, clearWeather } from './weather-ui.js';
 
 const sheet = () => document.getElementById('sheet');
 
@@ -105,6 +106,25 @@ export function renderMore(view) {
   parts.push(h('div', { class: 'card' }, h('h2', {}, 'Partenza da casa'),
     h('label', { class: 'field' }, h('span', {}, 'Minuti prima della presentazione'), travel),
     h('p', { class: 'muted', style: 'font-size:13px' }, 'Quando ti presenti alla base, l’app mostra a che ora partire da casa (presentazione meno questi minuti). Cambia il valore se cambi casa.')));
+
+  // meteo (opzionale)
+  const wx = h('input', { type: 'checkbox', checked: s.weatherOn });
+  wx.addEventListener('change', async () => {
+    s.weatherOn = wx.checked;
+    saveSettings();
+    if (wx.checked) {
+      actions.toast('Scarico il meteo…');
+      await refreshWeather({ force: true });
+    } else clearWeather();
+    actions.refresh();
+  });
+  const wAt = state.weather?.at;
+  parts.push(h('div', { class: 'card' }, h('h2', {}, 'Meteo'),
+    h('label', { class: 'field' }, h('span', {}, 'Mostra il meteo (usa internet)'), wx),
+    s.weatherOn ? h('div', { class: 'muted', style: 'font-size:13px' }, wAt ? `Ultimo aggiornamento: ${new Date(wAt).toLocaleString('it-IT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : 'Ancora nessun aggiornamento.') : null,
+    state.weather?.error ? h('div', { class: 'bad', style: 'font-size:13px' }, state.weather.error) : null,
+    s.weatherOn ? h('button', { class: 'btn secondary', style: 'margin-top:8px', onclick: async () => { actions.toast('Aggiorno il meteo…'); await refreshWeather({ force: true }); actions.refresh(); } }, 'Aggiorna ora') : null,
+    h('p', { class: 'muted', style: 'font-size:13px;margin-top:8px' }, 'Spento di default. Se acceso, l’app chiede a Open-Meteo (gratuito, senza account) la previsione per i luoghi dei tuoi servizi dei prossimi 15 giorni. Nella richiesta ci sono solo le coordinate degli aeroporti e le date: nessun dato del roster. Non sostituisce METAR e TAF.')));
 
   // soglie scadenze
   const warn = h('input', { type: 'number', min: 1, max: 365, value: s.warn, inputmode: 'numeric' });

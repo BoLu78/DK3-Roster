@@ -3,6 +3,7 @@ import { h, fmtDayShort, DOW_SHORT, dowOf, kindOf, titleCase } from './util.js';
 import { state, actions, saveSettings, homeTravelMin } from './state.js';
 import { fmtHM } from '../src/ftl.js';
 import { eventName } from '../src/labels.js';
+import { wxChip } from './weather-ui.js';
 import { times, timeEl, utcText, locText } from './timefmt.js';
 import { buildDayTimeline, durationMin, fmtDuration, fmtUtc, utcOffsetHours } from '../src/timeline.js';
 import { arrowRoute } from './views-list.js';
@@ -27,7 +28,8 @@ function legCard(item, day) {
     h('div', { class: 'apt' }, code ?? '—'),
     h('div', { class: 'city' }, airportName(code) || ' '),
     h('div', { class: 'tu' }, t ? utcText(t) : '—'),
-    h('div', { class: 'tl' }, t ? (t.loc ? locText(t) : 'ora locale n.d.') : ''));
+    h('div', { class: 'tl' }, t ? (t.loc ? locText(t) : 'ora locale n.d.') : ''),
+    h('div', { class: 'wxline' }, wxChip(code, right ? arrMs : depMs, { detail: true })));
   const off = utcOffsetHours(depMs, leg.dep, state.data.airports);
   return h('div', { class: 'leg' },
     h('div', { class: 'head' }, h('b', {}, name), h('span', {}, [leg.ac, dur != null && leg.kind !== 'ground' ? fmtDuration(dur) : null].filter(Boolean).join(' · '))),
@@ -145,6 +147,12 @@ function body(day) {
     parts.push(h('div', { class: 'card hotel' }, h('h2', {}, `Hotel ${hot.code}${hot.airport ? ` · ${hot.airport}` : ''}`), h('div', {}, hot.name ?? hot.code), hot.phone ? h('div', {}, h('a', { href: `tel:${hot.phone.replace(/[^\d+]/g, '')}` }, hot.phone)) : null));
   }
   if (day.notes.length) parts.push(h('div', { class: 'card' }, h('h2', {}, 'Note'), day.notes.map((n) => h('div', {}, n))));
+  // giorno senza voli ma con hotel (pernottamento): meteo del luogo
+  const stay = day.hotel?.airport;
+  if (stay && !tl.legs.length) {
+    const chip = wxChip(stay, Date.parse(day.date + 'T12:00:00Z'), { detail: true });
+    if (chip) parts.push(h('div', { class: 'ev' }, h('span', { class: 'lb' }, 'Meteo', h('small', { class: 'muted' }, stay)), h('span', { class: 'tm' }, chip)));
+  }
   const ftl = state.ftl?.byDate.get(day.date);
   for (const d of ftl?.duties ?? []) if (d.fdp) parts.push(fdpCard(d, day));
   for (const r of ftl?.rests ?? []) parts.push(restCard(r));

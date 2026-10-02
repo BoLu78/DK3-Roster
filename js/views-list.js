@@ -9,6 +9,7 @@ import { evaluateRecurrent } from '../src/recurrent.js';
 import { showImportSheet } from './views-more.js';
 import { fmtHM } from '../src/ftl.js';
 import { eventName } from '../src/labels.js';
+import { wxChip } from './weather-ui.js';
 
 export const arrowRoute = (day) => routeOf(day).split('-').join(' → ');
 
@@ -59,6 +60,28 @@ export function daySummary(day) {
   return out;
 }
 
+// meteo previsto alle destinazioni del giorno (massimo 2) o nel luogo del pernottamento
+function wxChips(day) {
+  if (!state.settings.weatherOn) return [];
+  const base = state.data.pilot?.base ?? 'MXP';
+  const tl = buildDayTimeline(day);
+  const out = [];
+  const seen = new Set();
+  for (const e of tl.legs) {
+    const apt = e.leg.arr;
+    if (e.leg.kind !== 'flight' || !apt || apt === base || seen.has(apt)) continue;
+    seen.add(apt);
+    const chip = wxChip(apt, e.arrMs);
+    if (chip) out.push(h('span', {}, chip, ` ${apt}`));
+    if (out.length === 2) break;
+  }
+  if (!out.length && !tl.legs.length && day.hotel?.airport) {
+    const chip = wxChip(day.hotel.airport, Date.parse(day.date + 'T12:00:00Z'));
+    if (chip) out.push(h('span', {}, chip, ` ${day.hotel.airport}`));
+  }
+  return out;
+}
+
 // partenza da casa (solo se la presentazione è alla base)
 function homeChip(day) {
   const ci = buildDayTimeline(day).events.find((e) => e.t === 'ci');
@@ -87,7 +110,7 @@ function dayRow(day, today) {
     main = h('div', { class: 'main' },
       h('div', { class: 'l1' }, h('span', { class: 'route' }, s.title), day.ft && day.kind === 'flight' ? h('span', { class: 'ft' }, `FT ${day.ft.replace(/^0/, '')}`) : null),
       s.timeline ? h('div', { class: 'l2' }, s.timeline.utc, s.timeline.loc ? h('span', { class: 'loc' }, `  ·  ${s.timeline.loc}`) : null) : null,
-      h('div', { class: 'l3' }, s.extra.filter(Boolean).map((x) => h('span', {}, x)), homeChip(day), ftlChip(day), day.hotel ? h('span', {}, `🛏 ${day.hotel.code} ${day.hotel.airport ?? ''}`) : null, day.flags.includes('E_FDP') ? h('span', {}, 'E_FDP') : null));
+      h('div', { class: 'l3' }, s.extra.filter(Boolean).map((x) => h('span', {}, x)), homeChip(day), ftlChip(day), ...wxChips(day), day.hotel ? h('span', {}, `🛏 ${day.hotel.code} ${day.hotel.airport ?? ''}`) : null, day.flags.includes('E_FDP') ? h('span', {}, 'E_FDP') : null));
   }
   return h('button', { class: cls, onclick: () => actions.openDay(day.date), 'aria-label': day.date }, dt, h('div', { class: 'bar' }), main);
 }

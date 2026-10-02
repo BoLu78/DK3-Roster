@@ -19,6 +19,9 @@ L'utente è un comandante B737 Neos, base MXP. **Non è un programmatore.**
 - Hosting: GitHub Pages (repo pubblico, account `BoLu78`).
 - **Nessun backend, nessun token, nessuna chiamata di rete con dati dell'utente.**
   I turni restano solo sul dispositivo, in IndexedDB.
+  **Unica eccezione, approvata dall'utente (2 ott 2026): il meteo**, opzionale e spento di default,
+  da Open-Meteo (gratuito, senza account né chiave). Nella richiesta vanno solo le coordinate
+  degli aeroporti e le date, mai dati del roster. Nessun'altra chiamata di rete.
 - Le librerie esterne (pdf.js) si copiano in `vendor/`, non si caricano da CDN:
   l'app deve funzionare offline.
 - Target principale: Safari iOS, installata su schermata Home.

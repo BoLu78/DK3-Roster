@@ -10,6 +10,7 @@ export const state = {
   data: { days: new Map(), airports: {}, periods: [], recurrent: [], pilot: null },
   pending: new Map(), // date -> modifica non ancora vista
   ftl: null, // risultato del controllo FTL (src/ftl.js)
+  weather: { cache: {}, at: 0, error: null, busy: false }, // previsioni salvate sul telefono
   tab: 'list',
   month: null,
   settings: loadSettings(),
@@ -19,7 +20,7 @@ export const state = {
 export const actions = { ftlChanged() {}, go() {}, openDay() {}, closeSheet() {}, refresh() {}, toast() {}, pickPdf() {}, showImportResult() {} };
 
 function loadSettings() {
-  const base = { warn: DEFAULT_THRESHOLDS.warn, critical: DEFAULT_THRESHOLDS.critical, include787: false, icsScope: 'all', icsAlarm: 0, statsUntil: 'auto', ftlCrew: {}, homeTravelMin: 90 };
+  const base = { warn: DEFAULT_THRESHOLDS.warn, critical: DEFAULT_THRESHOLDS.critical, include787: false, icsScope: 'all', icsAlarm: 0, statsUntil: 'auto', ftlCrew: {}, homeTravelMin: 90, weatherOn: false };
   try {
     return { ...base, ...JSON.parse(storage.getItem(SETTINGS_KEY) ?? '{}') };
   } catch {

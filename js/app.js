@@ -11,6 +11,7 @@ import { renderStats } from './views-stats.js';
 import { renderRecurrent, alertCount } from './views-recurrent.js';
 import { renderMore, showImportSheet, restoreBackup } from './views-more.js';
 import { renderMap } from './views-map.js';
+import { loadWeather, refreshWeather } from './weather-ui.js';
 import { showDetail } from './views-detail.js';
 
 const $ = (id) => document.getElementById(id);
@@ -166,12 +167,29 @@ $('restore').addEventListener('change', async (ev) => {
   }
 });
 window.addEventListener('popstate', () => actions.closeSheet());
+async function updateWeather(force = false) {
+  if (await refreshWeather({ force })) {
+    const open = !$('sheet').hidden;
+    const body = $('sheet').querySelector('.body');
+    const top = body?.scrollTop ?? 0;
+    render();
+    if (open && showDetail.current) {
+      showDetail(showDetail.current);
+      const b = $('sheet').querySelector('.body');
+      if (b) b.scrollTop = top;
+    }
+  }
+}
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && hasData()) render(); // aggiorna "oggi" e le scadenze
+  if (document.visibilityState === 'visible' && hasData()) {
+    render(); // aggiorna "oggi" e le scadenze
+    updateWeather(); // il meteo si riscarica se ha più di 3 ore
+  }
 });
 
 // ---------------------------------------------------------------- avvio
 window.__dk3 = { state, importBuffer, actions };
+loadWeather();
 try {
   await load();
 } catch (e) {
@@ -179,6 +197,7 @@ try {
   actions.toast('Archivio non disponibile: i dati non verranno salvati');
 }
 render();
+updateWeather();
 navigator.storage?.persist?.().catch(() => {});
 
 // in sviluppo (localhost) il service worker è spento, per vedere subito le modifiche; si prova con ?sw

@@ -141,3 +141,10 @@ il PDF del manuale non è nel repository).
 
 - Dettaglio giorno: FDP cockpit e riposo in fondo alla pagina. Tolti equipaggio e codici a 3 lettere (restano nei dati, non si mostrano).
 - Partenza da casa (presentazione alla base meno N minuti, default 90, impostabile in Altro): nel dettaglio e nella lista.
+
+### Meteo (2 ott 2026)
+
+Opzionale (interruttore in Altro, spento di default), da Open-Meteo: icona + temperatura alla partenza e all'arrivo di
+ogni tratta (dettaglio) e alle destinazioni (lista); per i pernottamenti, il meteo del luogo. Previsioni fino a 15 giorni.
+Si riscarica da solo se ha più di 3 ore; se per un'ora cambia il tipo di tempo mostra "prima: ...". Restano salvate sul telefono.
+Codice: `src/weather.js` (testato con rete finta), `js/weather-ui.js`.
