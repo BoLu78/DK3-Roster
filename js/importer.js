@@ -1,4 +1,5 @@
 // Import del PDF: pdf.js (copiato in vendor/, niente CDN) + parser.
+import './polyfills.js';
 import { parsePdf, checkTotals } from '../src/parser.js';
 import { changesFor } from '../src/merge.js';
 
