@@ -82,6 +82,14 @@ function wxChips(day) {
   return out;
 }
 
+// fine (a ora locale) di un servizio iniziato il giorno prima: "↤ Fine del servizio del 5 ott · check-out 00:55 LT"
+export function tailLines(date) {
+  return (state.tails.get(date) ?? []).map((t) => {
+    const x = times(t.endMs, t.endApt, date);
+    return `↤ Fine del servizio del ${fmtDayShort(t.fromDate)} · ${eventName(t.label, 'C/O').toLowerCase()} ${x?.loc ? `${x.loc} LT (${x.utc}Z)` : `${x?.utc}Z`}`;
+  });
+}
+
 // partenza da casa (solo se la presentazione è alla base)
 function homeChip(day) {
   const ci = buildDayTimeline(day).events.find((e) => e.t === 'ci');
@@ -104,7 +112,8 @@ function dayRow(day, today) {
   const dt = h('div', { class: 'dt' }, h('div', { class: 'n' }, Number(day.date.slice(8))), h('div', { class: 'w' }, DOW_SHORT[dowOf(day.date)]));
   let main;
   if (['off', 'blank', 'rest'].includes(day.kind) && !day.seq?.length) {
-    main = h('div', { class: 'main' }, { off: 'Riposo', rest: 'Giorno X · nessun nuovo servizio', blank: '—' }[day.kind], day.hotel ? h('span', { class: 'muted', style: 'margin-left:10px' }, `🛏 ${day.hotel.code} ${day.hotel.airport ?? ''}`) : null);
+    const tail = tailLines(day.date);
+    main = h('div', { class: 'main', style: tail.length ? 'flex-direction:column;align-items:flex-start;justify-content:center' : null }, tail.length ? h('div', { class: 'muted' }, tail.map((t) => h('div', {}, t))) : null, h('span', {}, { off: 'Riposo', rest: 'Giorno X · nessun nuovo servizio', blank: tail.length ? '' : '—' }[day.kind]), day.hotel ? h('span', { class: 'muted', style: 'margin-left:10px' }, `🛏 ${day.hotel.code} ${day.hotel.airport ?? ''}`) : null);
   } else {
     const s = daySummary(day);
     main = h('div', { class: 'main' },

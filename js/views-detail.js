@@ -6,7 +6,7 @@ import { eventName } from '../src/labels.js';
 import { wxChip } from './weather-ui.js';
 import { times, timeEl, utcText, locText } from './timefmt.js';
 import { buildDayTimeline, durationMin, fmtDuration, fmtUtc, utcOffsetHours } from '../src/timeline.js';
-import { arrowRoute } from './views-list.js';
+import { arrowRoute, tailLines } from './views-list.js';
 import { collectRoutes } from '../src/geo.js';
 import { createMap } from './map.js';
 
@@ -101,6 +101,7 @@ function body(day) {
     day.kind === 'standby' && tl.window ? h('div', {}, timeEl(times(tl.window.startMs, day.airport, ref)), ' → ', timeEl(times(tl.window.endMs, day.airport, ref))) : null);
   parts.push(hero);
 
+  for (const t of tailLines(day.date)) parts.push(h('div', { class: 'card', style: 'padding:10px 14px' }, t));
   const pend = state.pending.get(day.date);
   if (pend) parts.push(h('div', { class: 'card changes' }, h('h2', {}, `Modificato dall'ultimo import (${{ added: 'aggiunto', removed: 'tolto', changed: 'cambiato' }[pend.kind]})`), h('ul', {}, pend.lines.map((l) => h('li', {}, l)))));
 

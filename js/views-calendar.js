@@ -107,7 +107,7 @@ export function renderCalendar(view) {
   const today = todayIso();
   if (!selected || !selected.startsWith(key)) selected = today.startsWith(key) ? today : `${key}-01`;
   const first = `${key}-01`;
-  const trips = buildTrips([...state.data.days.values()].sort((a, b) => a.date.localeCompare(b.date)), base());
+  const trips = buildTrips([...state.data.days.values()].sort((a, b) => a.date.localeCompare(b.date)), base(), state.data.airports);
   const lastDay = monthDays(key).at(-1)?.date ?? first;
   const parts = [h('div', { class: 'wkhead' }, ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'].map((w) => h('span', {}, w)))];
   for (let ws = mondayOnOrBefore(first); ws <= lastDay; ws = addDays(ws, 7)) parts.push(weekRow(ws, key, trips, today));

@@ -4,6 +4,7 @@ import { state, actions, hasData, monthKeys } from './state.js';
 import { allImports, addImport } from './db.js';
 import { mergeImports, pendingChangeDates } from '../src/merge.js';
 import { analyze } from '../src/ftl.js';
+import { dutyTails } from '../src/tails.js';
 import { readRoster, ImportError } from './importer.js';
 import { renderList, monthStep } from './views-list.js';
 import { renderCalendar } from './views-calendar.js';
@@ -29,6 +30,12 @@ const TABS = [['list', 'Turni'], ['cal', 'Calendario'], ['map', 'Mappa'], ['stat
 
 // ---------------------------------------------------------------- dati
 function computeFtl() {
+  try {
+    state.tails = dutyTails([...state.data.days.values()].sort((a, b) => a.date.localeCompare(b.date)), state.data.airports, state.data.pilot?.base ?? 'MXP');
+  } catch (e) {
+    console.error(e);
+    state.tails = new Map();
+  }
   try {
     state.ftl = analyze([...state.data.days.values()], { base: state.data.pilot?.base ?? 'MXP', airports: state.data.airports, crewByDuty: state.settings.ftlCrew ?? {} });
   } catch (e) {

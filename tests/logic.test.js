@@ -172,3 +172,24 @@ test('geo: distanze, rotte e tratte', async () => {
   assert.equal(r.routes[0].count, 2);
   assert.deepEqual(r.missing, ['ZZZ']);
 });
+
+test('servizio che passa la mezzanotte a ora locale: il giorno dopo contiene la fine', async () => {
+  const { dutyTails } = await import('../src/tails.js');
+  const { buildTrips } = await import('../src/trips.js');
+  // 5 ottobre: C/I 12:30Z, C/O 22:55Z = 00:55 del 6 a Milano (UTC+2)
+  const d = day('2026-10-05', { checkIn: { label: 'C/I', airport: 'MXP', time: '1230' }, checkOut: { label: 'C/O', airport: 'MXP', time: '2255' } });
+  d.legs = [
+    { kind: 'flight', airline: 'NO', number: '1', dep: 'MXP', arr: 'FUE', depTime: '1330', arrTime: '1745', ac: 'B737' },
+    { kind: 'flight', airline: 'NO', number: '2', dep: 'FUE', arr: 'MXP', depTime: '1835', arrTime: '2225', ac: 'B737' },
+  ];
+  const airports = { MXP: { country: 'ITALY' }, FUE: { country: 'SPAIN' } };
+  const tails = dutyTails([d], airports, 'MXP');
+  assert.deepEqual([...tails.keys()], ['2026-10-06']);
+  assert.equal(tails.get('2026-10-06')[0].fromDate, '2026-10-05');
+  const trips = buildTrips([d], 'MXP', airports);
+  assert.deepEqual([trips[0].startDate, trips[0].endDate], ['2026-10-05', '2026-10-06']); // barra su due giorni
+  assert.equal(buildTrips([d], 'MXP')[0].endDate, '2026-10-05'); // senza fusi si resta in UTC
+  // un servizio che finisce prima di mezzanotte locale non lascia code
+  const early = day('2026-10-07');
+  assert.equal(dutyTails([early], airports, 'MXP').size, 0);
+});

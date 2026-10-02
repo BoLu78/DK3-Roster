@@ -9,6 +9,7 @@ export const state = {
   imports: [],
   data: { days: new Map(), airports: {}, periods: [], recurrent: [], pilot: null },
   pending: new Map(), // date -> modifica non ancora vista
+  tails: new Map(), // data locale -> fine di servizi iniziati il giorno prima
   ftl: null, // risultato del controllo FTL (src/ftl.js)
   weather: { cache: {}, at: 0, error: null, busy: false }, // previsioni salvate sul telefono
   tab: 'list',
