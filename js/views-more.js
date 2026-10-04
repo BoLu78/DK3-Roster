@@ -94,7 +94,7 @@ export function renderMore(view) {
         download(`DK3-Roster${m ? '-' + m : ''}.ics`, text, 'text/calendar');
         actions.toast(`${count} eventi pronti`);
       } }, 'Esporta .ics'),
-      h('p', { class: 'muted', style: 'font-size:13px;margin-top:8px' }, 'Gli eventi vanno dal check-in al check-out in orario UTC: il Calendario li mostra nell’ora locale del telefono. L’elenco dei dettagli (orari UTC e locali, FT, DT, hotel) è nelle note.')));
+      h('p', { class: 'muted', style: 'font-size:13px;margin-top:8px' }, 'Gli eventi vanno dal check-in al check-out in orario UTC: il Calendario li mostra nell’ora locale del telefono. L’elenco dei dettagli (orari UTC e locali, FT, DT, hotel) è nelle note. Dopo “Salva su File”, aprilo da File e tocca “Aggiungi tutti”.')));
   }
 
   // partenza da casa
@@ -128,9 +128,11 @@ export function renderMore(view) {
         h('ol', { style: 'margin:8px 0 0 18px;padding:0;font-size:14px;line-height:1.5' },
           h('li', {}, 'Una volta sola: nell’app Calendario tocca “Calendari” → “Aggiungi calendario” e chiamalo “Turni” (su iCloud).'),
           h('li', {}, 'Sempre nel Calendario, tocca la “i” accanto a “Turni” → “Aggiungi persona” e scegli tua moglie. Lei accetta l’invito.'),
-          h('li', {}, 'Tocca “Esporta per la famiglia”, scegli “Calendario”, poi “Turni” come calendario di destinazione.'),
-          h('li', {}, 'Dopo un nuovo PDF ripeti il punto 3: gli eventi cambiati si aggiornano da soli sul suo telefono.'),
-          h('li', {}, 'Un servizio tolto dal roster non sparisce da solo: cancellalo dal calendario “Turni” (o svuotalo prima di importare).')))));
+          h('li', {}, 'Tocca “Esporta per la famiglia” e scegli Salva su File (per esempio nella cartella “DK3 Roster”).'),
+          h('li', {}, 'Apri l’app File, tocca il file “Turni-famiglia.ics”: si apre il Calendario con l’elenco degli eventi. Tocca Aggiungi tutti; in basso, alla voce Calendario, scegli “Turni” (non il calendario predefinito).'),
+          h('li', {}, 'Dopo un nuovo PDF ripeti i punti 3 e 4: gli eventi cambiati si aggiornano da soli sul suo telefono.'),
+          h('li', {}, 'Un servizio tolto dal roster non sparisce da solo: cancellalo dal calendario “Turni” (o svuotalo prima di importare).')),
+        h('p', { class: 'muted', style: 'font-size:13px;margin-top:8px' }, 'Alternativa senza calendario condiviso: manda il file a tua moglie su WhatsApp o Messaggi. Lei lo tocca e sceglie “Aggiungi tutti”: ogni nuovo invio aggiorna gli stessi eventi.'))));
   }
 
   // meteo (opzionale)
