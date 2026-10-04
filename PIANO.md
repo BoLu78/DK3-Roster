@@ -156,3 +156,6 @@ condiviso con la moglie: "🏠 A casa", "✈ MXP → FUE → MXP" (dal decollo a
 "🛏 Notte a Rimini", "🏠 A casa · stand-by/reperibile". Nessun dato di lavoro. UID stabili: al nuovo invio gli eventi
 cambiati si aggiornano; quelli tolti dal roster vanno cancellati a mano. Se si rientra prima di mezzogiorno, l'ultimo giorno è "a casa".
 Corretto anche l'escape del punto e virgola nei testi `.ics`.
+
+- (4 ott) Altro semplificato: una sola scheda "Esporta nel Calendario (.ics)" con menu Formato (Completo / Famiglia).
+  Modo che funziona su iPhone: Esporta → Mail a se stessi → aprire l'allegato → "Aggiungi tutti" → scegliere il calendario.

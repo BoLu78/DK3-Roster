@@ -75,26 +75,49 @@ export function renderMore(view) {
     })));
   }
 
-  // export .ics
+  // export .ics (un'unica scheda: formato completo oppure semplice per la famiglia)
   const keys = monthKeys();
   if (keys.length) {
-    const scope = h('select', { id: 'ics-scope' }, h('option', { value: 'all', selected: s.icsScope === 'all' }, 'Voli, trasferimenti, sim, stand-by'), h('option', { value: 'flights', selected: s.icsScope === 'flights' }, 'Solo voli'));
-    const month = h('select', { id: 'ics-month' }, h('option', { value: '' }, 'Tutti i mesi'), keys.map((k) => h('option', { value: k, selected: k === state.month }, fmtMonth(k))));
-    const alarm = h('select', { id: 'ics-alarm' }, [[0, 'Nessuno'], [60, '1 ora prima'], [120, '2 ore prima'], [180, '3 ore prima'], [720, '12 ore prima']].map(([v, l]) => h('option', { value: v, selected: s.icsAlarm === v }, l)));
+    const format = h('select', {}, h('option', { value: 'full', selected: s.icsFormat !== 'family' }, 'Completo (con i dettagli del servizio)'), h('option', { value: 'family', selected: s.icsFormat === 'family' }, 'Famiglia (casa, rotta, notti)'));
+    const scope = h('select', {}, h('option', { value: 'all', selected: s.icsScope === 'all' }, 'Voli, trasferimenti, sim, stand-by'), h('option', { value: 'flights', selected: s.icsScope === 'flights' }, 'Solo voli'));
+    const month = h('select', {}, h('option', { value: '' }, 'Tutti i mesi'), keys.map((k) => h('option', { value: k, selected: k === state.month }, fmtMonth(k))));
+    const alarm = h('select', {}, [[0, 'Nessuno'], [60, '1 ora prima'], [120, '2 ore prima'], [180, '3 ore prima'], [720, '12 ore prima']].map(([v, l]) => h('option', { value: v, selected: s.icsAlarm === v }, l)));
+    const fnum = h('input', { type: 'checkbox', checked: s.familyFlightNumbers });
+    const rowScope = h('label', { class: 'field' }, h('span', {}, 'Cosa'), scope);
+    const rowAlarm = h('label', { class: 'field' }, h('span', {}, 'Promemoria'), alarm);
+    const rowNum = h('label', { class: 'field' }, h('span', {}, 'Mostra i numeri di volo'), fnum);
+    const note = h('p', { class: 'muted', style: 'font-size:13px;margin-top:8px' });
+    const sync = () => {
+      const fam = format.value === 'family';
+      rowScope.hidden = rowAlarm.hidden = fam;
+      rowNum.hidden = !fam;
+      note.textContent = fam
+        ? 'Per chi vive con te: “🏠 A casa” nei giorni liberi, “✈ MXP → FUE → MXP” con gli orari, “🛏 Notte a …” fuori casa. Nessun dato di lavoro. Gli eventi hanno codici fissi: reinviando il file si aggiornano invece di duplicarsi (un servizio tolto va cancellato a mano).'
+        : 'Gli eventi vanno dal check-in al check-out in orario UTC: il Calendario li mostra nell’ora locale del telefono. Nelle note ci sono orari UTC e locali, FT, DT e hotel.';
+    };
+    format.addEventListener('change', sync);
+    sync();
     parts.push(h('div', { class: 'card' }, h('h2', {}, 'Esporta nel Calendario (.ics)'),
-      h('label', { class: 'field' }, h('span', {}, 'Cosa'), scope), h('label', { class: 'field' }, h('span', {}, 'Periodo'), month), h('label', { class: 'field' }, h('span', {}, 'Promemoria'), alarm),
+      h('label', { class: 'field' }, h('span', {}, 'Formato'), format), rowScope, h('label', { class: 'field' }, h('span', {}, 'Periodo'), month), rowAlarm, rowNum,
       h('button', { class: 'btn', onclick: () => {
+        s.icsFormat = format.value;
         s.icsScope = scope.value;
         s.icsAlarm = Number(alarm.value);
+        s.familyFlightNumbers = fnum.checked;
         saveSettings();
         const m = month.value;
         const days = [...state.data.days.values()].sort((a, b) => a.date.localeCompare(b.date));
-        const { text, count } = buildIcs(days, state.data.airports, { scope: scope.value, from: m ? `${m}-01` : null, to: m ? `${m}-31` : null, alarmMinutes: Number(alarm.value) });
-        if (!count) return actions.toast('Nessun servizio da esportare');
-        download(`DK3-Roster${m ? '-' + m : ''}.ics`, text, 'text/calendar');
+        const range = { from: m ? `${m}-01` : null, to: m ? `${m}-31` : null };
+        const fam = format.value === 'family';
+        const { text, count } = fam
+          ? buildFamilyIcs(days, state.data.airports, { base: state.data.pilot?.base ?? 'MXP', ...range, flightNumbers: fnum.checked })
+          : buildIcs(days, state.data.airports, { scope: scope.value, ...range, alarmMinutes: Number(alarm.value) });
+        if (!count) return actions.toast('Niente da esportare');
+        download(`${fam ? 'Turni-famiglia' : 'DK3-Roster'}${m ? '-' + m : ''}.ics`, text, 'text/calendar');
         actions.toast(`${count} eventi pronti`);
       } }, 'Esporta .ics'),
-      h('p', { class: 'muted', style: 'font-size:13px;margin-top:8px' }, 'Gli eventi vanno dal check-in al check-out in orario UTC: il Calendario li mostra nell’ora locale del telefono. L’elenco dei dettagli (orari UTC e locali, FT, DT, hotel) è nelle note. Dopo “Salva su File”, aprilo da File e tocca “Aggiungi tutti”.')));
+      note,
+      h('p', { class: 'muted', style: 'font-size:13px' }, 'Per metterlo nel Calendario: scegli “Mail” e invia il file a te stesso, apri l’allegato e tocca “Aggiungi tutti” scegliendo il calendario.')));
   }
 
   // partenza da casa
@@ -107,33 +130,6 @@ export function renderMore(view) {
   parts.push(h('div', { class: 'card' }, h('h2', {}, 'Partenza da casa'),
     h('label', { class: 'field' }, h('span', {}, 'Minuti prima della presentazione'), travel),
     h('p', { class: 'muted', style: 'font-size:13px' }, 'Quando ti presenti alla base, l’app mostra a che ora partire da casa (presentazione meno questi minuti). Cambia il valore se cambi casa.')));
-
-  // calendario per la famiglia
-  if (keys.length) {
-    const fmonth = h('select', {}, h('option', { value: '' }, 'Tutti i mesi'), keys.map((k) => h('option', { value: k, selected: k === state.month }, fmtMonth(k))));
-    const fnum = h('input', { type: 'checkbox', checked: s.familyFlightNumbers });
-    parts.push(h('div', { class: 'card' }, h('h2', {}, 'Per la famiglia'),
-      h('p', { style: 'font-size:14.5px;margin-bottom:8px' }, 'Crea un calendario semplice per chi vive con te: “🏠 A casa” nei giorni liberi, “✈ MXP → FUE → MXP” con gli orari nei giorni di volo, “🛏 Notte a …” fuori casa. Senza dati di lavoro.'),
-      h('label', { class: 'field' }, h('span', {}, 'Periodo'), fmonth), h('label', { class: 'field' }, h('span', {}, 'Mostra i numeri di volo'), fnum),
-      h('button', { class: 'btn', onclick: () => {
-        s.familyFlightNumbers = fnum.checked;
-        saveSettings();
-        const m = fmonth.value;
-        const days = [...state.data.days.values()].sort((a, b) => a.date.localeCompare(b.date));
-        const { text, count } = buildFamilyIcs(days, state.data.airports, { base: state.data.pilot?.base ?? 'MXP', from: m ? `${m}-01` : null, to: m ? `${m}-31` : null, flightNumbers: fnum.checked });
-        if (!count) return actions.toast('Niente da esportare');
-        download(`Turni-famiglia${m ? '-' + m : ''}.ics`, text, 'text/calendar');
-      } }, 'Esporta per la famiglia'),
-      h('details', { style: 'margin-top:10px' }, h('summary', { style: 'color:var(--accent);font-weight:600;cursor:pointer' }, 'Come condividerlo con tua moglie'),
-        h('ol', { style: 'margin:8px 0 0 18px;padding:0;font-size:14px;line-height:1.5' },
-          h('li', {}, 'Una volta sola: nell’app Calendario tocca “Calendari” → “Aggiungi calendario” e chiamalo “Turni” (su iCloud).'),
-          h('li', {}, 'Sempre nel Calendario, tocca la “i” accanto a “Turni” → “Aggiungi persona” e scegli tua moglie. Lei accetta l’invito.'),
-          h('li', {}, 'Tocca “Esporta per la famiglia” e scegli Salva su File (per esempio nella cartella “DK3 Roster”).'),
-          h('li', {}, 'Apri l’app File, tocca il file “Turni-famiglia.ics”: si apre il Calendario con l’elenco degli eventi. Tocca Aggiungi tutti; in basso, alla voce Calendario, scegli “Turni” (non il calendario predefinito).'),
-          h('li', {}, 'Dopo un nuovo PDF ripeti i punti 3 e 4: gli eventi cambiati si aggiornano da soli sul suo telefono.'),
-          h('li', {}, 'Un servizio tolto dal roster non sparisce da solo: cancellalo dal calendario “Turni” (o svuotalo prima di importare).')),
-        h('p', { class: 'muted', style: 'font-size:13px;margin-top:8px' }, 'Alternativa senza calendario condiviso: manda il file a tua moglie su WhatsApp o Messaggi. Lei lo tocca e sceglie “Aggiungi tutti”: ogni nuovo invio aggiorna gli stessi eventi.'))));
-  }
 
   // meteo (opzionale)
   const wx = h('input', { type: 'checkbox', checked: s.weatherOn });
