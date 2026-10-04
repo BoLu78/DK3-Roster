@@ -148,3 +148,11 @@ Opzionale (interruttore in Altro, spento di default), da Open-Meteo: icona + tem
 ogni tratta (dettaglio) e alle destinazioni (lista); per i pernottamenti, il meteo del luogo. Previsioni fino a 15 giorni.
 Si riscarica da solo se ha più di 3 ore; se per un'ora cambia il tipo di tempo mostra "prima: ...". Restano salvate sul telefono.
 Codice: `src/weather.js` (testato con rete finta), `js/weather-ui.js`.
+
+### Calendario per la famiglia (4 ott 2026)
+
+Altro → "Per la famiglia": file `.ics` semplificato (src/family.js) da importare in un calendario iCloud "Turni"
+condiviso con la moglie: "🏠 A casa", "✈ MXP → FUE → MXP" (dal decollo all'atterraggio, orari locali nella descrizione),
+"🛏 Notte a Rimini", "🏠 A casa · stand-by/reperibile". Nessun dato di lavoro. UID stabili: al nuovo invio gli eventi
+cambiati si aggiornano; quelli tolti dal roster vanno cancellati a mano. Se si rientra prima di mezzogiorno, l'ultimo giorno è "a casa".
+Corretto anche l'escape del punto e virgola nei testi `.ics`.

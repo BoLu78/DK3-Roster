@@ -120,7 +120,7 @@ test('ics: eventi, orari UTC, righe lunghe e caratteri speciali', () => {
   assert.ok(text.includes('DTEND:20261003T170000Z'));
   assert.ok(text.includes('DTSTART:20261005T080000Z'));
   assert.ok(text.includes('TRIGGER:-PT120M'));
-  assert.ok(text.includes('HOTEL\\, CENTRO\; (X)'));
+  assert.ok(text.includes('HOTEL\\, CENTRO\\; (X)'));
   assert.ok(text.includes('SUMMARY:✈ MXP-RMF-MXP NO100/NO101'));
   for (const line of text.split('\r\n')) assert.ok(new TextEncoder().encode(line).length <= 75, 'riga troppo lunga: ' + line);
   assert.equal(buildIcs([d, off, sby], {}, { scope: 'flights' }).count, 1);
@@ -192,4 +192,35 @@ test('servizio che passa la mezzanotte a ora locale: il giorno dopo contiene la 
   // un servizio che finisce prima di mezzanotte locale non lascia code
   const early = day('2026-10-07');
   assert.equal(dutyTails([early], airports, 'MXP').size, 0);
+});
+
+test('famiglia: casa, rotazione su più giorni, notti, UID stabili', async () => {
+  const { buildFamilyIcs } = await import('../src/family.js');
+  const airports = { MXP: { country: 'ITALY', name: 'MILAN MALPENSA APT' }, FUE: { country: 'SPAIN', name: 'FUERTEVENTURA' }, RMF: { country: 'EGYPT', name: 'MARSA ALAM' } };
+  const off = (date) => day(date, { kind: 'off', code: 'OFF', legs: [], checkIn: null, checkOut: null, seq: [] });
+  const fl = (n, dep, arr, d, a) => ({ kind: 'flight', airline: 'NO', number: n, dep, arr, depTime: d, arrTime: a, ac: 'B737' });
+  // 5 ott: MXP-FUE-MXP; 6 ott: riposo; 7-8: MXP-RMF (notte a Marsa Alam) -RMF-MXP
+  const a = day('2026-10-05', { legs: [fl('1620', 'MXP', 'FUE', '1330', '1745'), fl('1621', 'FUE', 'MXP', '1835', '2225')], checkIn: { label: 'C/I', airport: 'MXP', time: '1230' }, checkOut: { label: 'C/O', airport: 'MXP', time: '2255' } });
+  const b = day('2026-10-07', { legs: [fl('7', 'MXP', 'RMF', '0600', '1000')], checkIn: { label: 'C/I', airport: 'MXP', time: '0500' }, checkOut: { label: 'C/O', airport: 'RMF', time: '1030' }, hotel: { code: 'H1', airport: 'RMF', name: 'Hotel; Mare' } });
+  const c = day('2026-10-08', { legs: [fl('8', 'RMF', 'MXP', '1000', '1400')], checkIn: { label: 'C/I', airport: 'RMF', time: '0900' }, checkOut: { label: 'C/O', airport: 'MXP', time: '1430' } });
+  const days = [a, off('2026-10-06'), b, c, off('2026-10-09')];
+  const { text, count } = buildFamilyIcs(days, airports, { base: 'MXP' }, Date.UTC(2026, 9, 4));
+  assert.ok(text.includes('SUMMARY:✈ MXP → FUE → MXP'));
+  assert.ok(text.includes('SUMMARY:✈ MXP → RMF → MXP')); // rotazione di due giorni = un solo evento
+  assert.ok(text.includes('SUMMARY:🏠 A casa'));
+  assert.ok(text.includes('SUMMARY:🛏 Notte a Marsa Alam'));
+  assert.ok(text.includes('DTSTART:20261005T133000Z') && text.includes('DTEND:20261005T222500Z')); // dal decollo all'atterraggio
+  assert.ok(text.includes('UID:fam-trip-2026-10-05-0@dk3-roster-famiglia'));
+  assert.ok(text.includes('UID:fam-day-2026-10-06@dk3-roster-famiglia'));
+  // il 6 e il 9 sono a casa; il 7 e l'8 no (siamo in rotazione); il 5 finisce 00:55 del 6 ma l'evento è del 5 -> il 6 resta "casa"? no: copre anche il 6
+  assert.ok(!text.includes('fam-day-2026-10-07') && !text.includes('fam-day-2026-10-08'));
+  assert.ok(!/FDP|FTL|equipaggio|crew/i.test(text), 'nessun dato di lavoro nel calendario di famiglia');
+  for (const line of text.split('\r\n')) assert.ok(new TextEncoder().encode(line).length <= 75, 'riga lunga: ' + line);
+  // secondo invio: stessi UID anche se l'orario cambia, SEQUENCE più alto
+  b.legs[0].depTime = '0630';
+  const again = buildFamilyIcs(days, airports, { base: 'MXP' }, Date.UTC(2026, 9, 5));
+  const uids = (t) => [...t.matchAll(/UID:(.+)@/g)].map((m) => m[1]).sort();
+  assert.deepEqual(uids(again.text), uids(text));
+  assert.ok(Number(/SEQUENCE:(\d+)/.exec(again.text)[1]) > Number(/SEQUENCE:(\d+)/.exec(text)[1]));
+  assert.ok(count >= 5);
 });

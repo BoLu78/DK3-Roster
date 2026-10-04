@@ -21,7 +21,7 @@ export const state = {
 export const actions = { ftlChanged() {}, go() {}, openDay() {}, closeSheet() {}, refresh() {}, toast() {}, pickPdf() {}, showImportResult() {} };
 
 function loadSettings() {
-  const base = { warn: DEFAULT_THRESHOLDS.warn, critical: DEFAULT_THRESHOLDS.critical, include787: false, icsScope: 'all', icsAlarm: 0, statsUntil: 'auto', ftlCrew: {}, homeTravelMin: 90, weatherOn: false };
+  const base = { warn: DEFAULT_THRESHOLDS.warn, critical: DEFAULT_THRESHOLDS.critical, include787: false, icsScope: 'all', icsAlarm: 0, statsUntil: 'auto', ftlCrew: {}, homeTravelMin: 90, weatherOn: false, familyFlightNumbers: true };
   try {
     return { ...base, ...JSON.parse(storage.getItem(SETTINGS_KEY) ?? '{}') };
   } catch {

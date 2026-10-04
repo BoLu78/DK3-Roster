@@ -3,6 +3,7 @@ import { h, fmtDayShort, fmtDayLong, fmtMonth, titleCase } from './util.js';
 import { state, actions, saveSettings, monthKeys, homeTravelMin } from './state.js';
 import { checkTotals } from '../src/parser.js';
 import { buildIcs } from '../src/ics.js';
+import { buildFamilyIcs } from '../src/family.js';
 import { deleteImport, clearImports, replaceImports, putImport, allImports } from './db.js';
 import { VERSION } from './version.js';
 import { refreshWeather, clearWeather } from './weather-ui.js';
@@ -106,6 +107,31 @@ export function renderMore(view) {
   parts.push(h('div', { class: 'card' }, h('h2', {}, 'Partenza da casa'),
     h('label', { class: 'field' }, h('span', {}, 'Minuti prima della presentazione'), travel),
     h('p', { class: 'muted', style: 'font-size:13px' }, 'Quando ti presenti alla base, l’app mostra a che ora partire da casa (presentazione meno questi minuti). Cambia il valore se cambi casa.')));
+
+  // calendario per la famiglia
+  if (keys.length) {
+    const fmonth = h('select', {}, h('option', { value: '' }, 'Tutti i mesi'), keys.map((k) => h('option', { value: k, selected: k === state.month }, fmtMonth(k))));
+    const fnum = h('input', { type: 'checkbox', checked: s.familyFlightNumbers });
+    parts.push(h('div', { class: 'card' }, h('h2', {}, 'Per la famiglia'),
+      h('p', { style: 'font-size:14.5px;margin-bottom:8px' }, 'Crea un calendario semplice per chi vive con te: “🏠 A casa” nei giorni liberi, “✈ MXP → FUE → MXP” con gli orari nei giorni di volo, “🛏 Notte a …” fuori casa. Senza dati di lavoro.'),
+      h('label', { class: 'field' }, h('span', {}, 'Periodo'), fmonth), h('label', { class: 'field' }, h('span', {}, 'Mostra i numeri di volo'), fnum),
+      h('button', { class: 'btn', onclick: () => {
+        s.familyFlightNumbers = fnum.checked;
+        saveSettings();
+        const m = fmonth.value;
+        const days = [...state.data.days.values()].sort((a, b) => a.date.localeCompare(b.date));
+        const { text, count } = buildFamilyIcs(days, state.data.airports, { base: state.data.pilot?.base ?? 'MXP', from: m ? `${m}-01` : null, to: m ? `${m}-31` : null, flightNumbers: fnum.checked });
+        if (!count) return actions.toast('Niente da esportare');
+        download(`Turni-famiglia${m ? '-' + m : ''}.ics`, text, 'text/calendar');
+      } }, 'Esporta per la famiglia'),
+      h('details', { style: 'margin-top:10px' }, h('summary', { style: 'color:var(--accent);font-weight:600;cursor:pointer' }, 'Come condividerlo con tua moglie'),
+        h('ol', { style: 'margin:8px 0 0 18px;padding:0;font-size:14px;line-height:1.5' },
+          h('li', {}, 'Una volta sola: nell’app Calendario tocca “Calendari” → “Aggiungi calendario” e chiamalo “Turni” (su iCloud).'),
+          h('li', {}, 'Sempre nel Calendario, tocca la “i” accanto a “Turni” → “Aggiungi persona” e scegli tua moglie. Lei accetta l’invito.'),
+          h('li', {}, 'Tocca “Esporta per la famiglia”, scegli “Calendario”, poi “Turni” come calendario di destinazione.'),
+          h('li', {}, 'Dopo un nuovo PDF ripeti il punto 3: gli eventi cambiati si aggiornano da soli sul suo telefono.'),
+          h('li', {}, 'Un servizio tolto dal roster non sparisce da solo: cancellalo dal calendario “Turni” (o svuotalo prima di importare).')))));
+  }
 
   // meteo (opzionale)
   const wx = h('input', { type: 'checkbox', checked: s.weatherOn });

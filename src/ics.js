@@ -2,14 +2,14 @@
 import { eventName } from './labels.js';
 import { buildDayTimeline, buildDuties, fmtUtc, localTime } from './timeline.js';
 
-function icsDate(ms) {
+export function icsDate(ms) {
   return new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 }
 
-const esc = (s) => String(s).replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+export const esc = (s) => String(s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
 
 // Righe max 75 byte, continuazione con spazio. Si taglia sui caratteri, non sui byte.
-function fold(line) {
+export function fold(line) {
   const enc = new TextEncoder();
   if (enc.encode(line).length <= 75) return line;
   const out = [];
