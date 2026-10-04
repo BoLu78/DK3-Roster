@@ -178,9 +178,6 @@ export function renderMore(view) {
   parts.push(h('div', { class: 'card' }, h('h2', {}, 'Informazioni'),
     h('div', { class: 'cmp' }, h('span', {}, 'Versione'), h('b', {}, VERSION)),
     state.data.pilot ? h('div', { class: 'cmp' }, h('span', {}, 'Pilota'), h('b', {}, `${state.data.pilot.code} · ${titleCase(state.data.pilot.name)}`)) : null,
-    h('p', { class: 'muted', style: 'font-size:13px;margin-top:8px' }, 'DK3 Roster legge il PDF “Individual duty plan” di NetLine/Crew e lo mostra come lista, calendario, mappa e statistiche. Gli orari nel PDF sono UTC (Z); l’ora locale (LT) è quella dell’aeroporto, calcolata dall’app.'),
-    h('p', { class: 'muted', style: 'font-size:13px' }, 'I tuoi turni restano solo su questo telefono: niente account, niente server. L’unica connessione è il meteo, opzionale (solo coordinate degli aeroporti e date).'),
-    h('p', { style: 'font-size:13px;font-weight:600' }, 'Strumento non ufficiale. I controlli FTL e le scadenze sono indicativi e possono contenere errori: fanno fede l’OMA, il roster aziendale e le comunicazioni del Crew Planning. Controlla sempre prima di decidere.'),
     imports.length ? h('button', { class: 'btn danger', style: 'margin-top:10px', onclick: async () => { if (confirm('Cancellare TUTTI i turni salvati su questo dispositivo?')) { await clearImports(); await actions.refresh(); actions.toast('Dati cancellati'); } } }, 'Cancella tutti i dati') : null));
   view.replaceChildren(...parts);
 }
