@@ -153,7 +153,7 @@ Codice: `src/weather.js` (testato con rete finta), `js/weather-ui.js`.
 
 Altro → "Per la famiglia": file `.ics` semplificato (src/family.js) da importare in un calendario iCloud "Turni"
 condiviso con la moglie: "🏠 A casa", "✈ MXP → FUE → MXP" (dal decollo all'atterraggio, orari locali nella descrizione),
-"🛏 Notte a Rimini", "🏠 A casa · stand-by/reperibile". Nessun dato di lavoro. UID stabili: al nuovo invio gli eventi
+"🛏 Notte a Rimini", "⏳ Stand-by 10:00–19:00" / "⏳ Reserve" (reperibile, non "a casa"). Nessun dato di lavoro. UID stabili: al nuovo invio gli eventi
 cambiati si aggiornano; quelli tolti dal roster vanno cancellati a mano. Se si rientra prima di mezzogiorno, l'ultimo giorno è "a casa".
 Corretto anche l'escape del punto e virgola nei testi `.ics`.
 

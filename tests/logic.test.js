@@ -223,4 +223,11 @@ test('famiglia: casa, rotazione su più giorni, notti, UID stabili', async () =>
   assert.deepEqual(uids(again.text), uids(text));
   assert.ok(Number(/SEQUENCE:(\d+)/.exec(again.text)[1]) > Number(/SEQUENCE:(\d+)/.exec(text)[1]));
   assert.ok(count >= 5);
+  // stand-by e reserve non sono "casa": reperibile
+  const sby = day('2026-10-10', { kind: 'standby', code: 'STAND-BY', airport: 'MXP', window: { start: '0800', end: '1700' }, legs: [], checkIn: null, checkOut: null, seq: [] });
+  const rsv = day('2026-10-11', { kind: 'standby', code: 'RESERVE', airport: 'MXP', legs: [], checkIn: null, checkOut: null, seq: [] });
+  const r = buildFamilyIcs([sby, rsv], airports, { base: 'MXP' }, Date.UTC(2026, 9, 4)).text;
+  assert.ok(r.includes('SUMMARY:⏳ Stand-by 10:00–19:00'));
+  assert.ok(r.includes('SUMMARY:⏳ Reserve'));
+  assert.ok(!r.includes('A casa'), 'stand-by e reserve non devono dire "A casa"');
 });

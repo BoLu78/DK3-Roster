@@ -1,5 +1,6 @@
 // Calendario "per la famiglia": solo dove sei e quando, senza dati di lavoro (FTL, equipaggi, FDP).
-//  - giorno senza servizio -> "🏠 A casa" (evento di tutto il giorno)
+//  - giorno di riposo o ferie -> "🏠 A casa" (evento di tutto il giorno)
+//  - stand-by / reserve -> "⏳ Stand-by 10:00–19:00" (reperibile: non è tempo libero)
 //  - rotazione (anche su più giorni) -> un evento dal decollo all'atterraggio con la rotta
 //  - notte in hotel -> "🛏 Notte a Rimini"
 // Gli identificativi (UID) sono stabili: importando di nuovo il file gli eventi cambiati si aggiornano
@@ -85,13 +86,16 @@ export function buildFamilyIcs(days, airports, options = {}, nowMs = Date.now())
       allDay(`fam-night-${day.date}`, day.date, `🛏 Notte a ${city}`, hotel ? `Hotel: ${hotel}` : '');
     }
     if (covered.has(day.date)) continue;
+    // "A casa" solo per riposo e ferie: stand-by e reserve sono lavoro (reperibile), non tempo libero
     let title = '🏠 A casa';
     let description = '';
     if (day.kind === 'vacation') title = '🏠 A casa · ferie';
     else if (day.kind === 'standby') {
-      title = day.code === 'RESERVE' ? '🏠 A casa · reperibile' : '🏠 A casa · stand-by';
       const tl = buildDayTimeline(day);
-      if (tl.window) description = `Reperibile dalle ${localTime(tl.window.startMs, day.airport ?? base, airports, null)?.time ?? '?'} alle ${localTime(tl.window.endMs, day.airport ?? base, airports, null)?.time ?? '?'} (può essere chiamato)`;
+      const hm = (ms) => localTime(ms, day.airport ?? base, airports, null)?.time ?? '?';
+      const window = tl.window ? `${hm(tl.window.startMs)}–${hm(tl.window.endMs)}` : '';
+      title = day.code === 'RESERVE' ? '⏳ Reserve' : `⏳ Stand-by${window ? ` ${window}` : ''}`;
+      description = `Reperibile: può essere chiamato a lavorare${window ? ` (${window})` : ''}`;
     }
     allDay(`fam-day-${day.date}`, day.date, title, description);
   }
