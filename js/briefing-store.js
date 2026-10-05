@@ -4,7 +4,7 @@ import { safeStorage } from './util.js';
 import { state } from './state.js';
 import { buildDayTimeline } from '../src/timeline.js';
 import { parseMetar, parseTaf } from '../src/metar.js';
-import { metarUrl, tafUrl, sigmetUrl, parseMetarJson, parseTafJson } from '../src/awc.js';
+import { metarUrl, tafUrl, sigmetUrl, parseMetarJson, parseTafJson, RELAYS } from '../src/awc.js';
 import { routePoints, buildRouteUrl, parseRouteResponse, routeSegments, parseSigmets, sigmetHits } from '../src/route-wx.js';
 import { normalizeRules } from '../src/rules.js';
 import { flightLegs, stationsNeeded, briefDay } from '../src/briefing.js';
@@ -89,24 +89,72 @@ export function dueDates(nowMs = Date.now()) {
 }
 
 // ---------------------------------------------------------------- rete
-async function getJson(url) {
-  const r = await fetch(url, { cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer' });
-  if (r.status === 204) return [];
-  if (!r.ok) throw new Error(`servizio meteo ${r.status}`);
-  const t = await r.text();
+async function fetchText(url, ms = 12000) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), ms);
   try {
-    return JSON.parse(t);
-  } catch {
-    if (!t.trim()) return [];
-    throw new Error('risposta non leggibile');
+    const r = await fetch(url, { cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer', signal: ctl.signal });
+    if (r.status === 204) return '[]';
+    if (!r.ok) throw new Error(`risposta ${r.status}`);
+    return await r.text();
+  } catch (e) {
+    throw new Error(e?.name === 'AbortError' ? 'nessuna risposta in tempo' : e?.message === 'Load failed' || e?.message === 'Failed to fetch' ? 'bloccato o non raggiungibile' : (e?.message ?? String(e)));
+  } finally {
+    clearTimeout(timer);
   }
 }
 
-// Verifica che il servizio risponda al browser (alcune fonti non lo permettono).
+const parseJson = (t) => {
+  if (!t.trim()) return [];
+  try {
+    return JSON.parse(t);
+  } catch {
+    throw new Error('risposta non leggibile');
+  }
+};
+
+// Percorsi possibili per i dati di aviationweather.gov: diretto, poi (solo se consentito) i servizi intermedi.
+let lastRoute = 0;
+const routesAllowed = () => [{ name: 'diretto', url: (u) => u }, ...(state.settings.briefingRelay ? RELAYS : [])];
+
+async function getAwc(url) {
+  const routes = routesAllowed();
+  const order = [...routes.keys()].sort((a, b) => (a === lastRoute ? -1 : b === lastRoute ? 1 : a - b));
+  const errs = [];
+  for (const i of order) {
+    try {
+      const json = parseJson(await fetchText(routes[i].url(url)));
+      lastRoute = i;
+      return json;
+    } catch (e) {
+      errs.push(`${routes[i].name}: ${e.message}`);
+    }
+  }
+  throw new Error(errs.join('; '));
+}
+
+// Open-Meteo risponde direttamente al browser
+const getJson = async (url) => parseJson(await fetchText(url));
+
+// Prova ogni percorso e dice com'è andata (per capire cosa funziona sul telefono).
 export async function testConnection() {
-  const m = parseMetarJson(await getJson(metarUrl(['LIMC'])));
-  if (!m.LIMC) throw new Error('nessun METAR ricevuto per LIMC');
-  return m.LIMC;
+  const lines = [];
+  let ok = null;
+  const routes = routesAllowed();
+  for (const [i, r] of routes.entries()) {
+    try {
+      const m = parseMetarJson(parseJson(await fetchText(r.url(metarUrl(['LIMC'])), 10000)));
+      if (!m.LIMC) throw new Error('nessun METAR ricevuto');
+      lines.push(`✅ ${r.name}: funziona`);
+      if (ok == null) {
+        ok = m.LIMC;
+        lastRoute = i;
+      }
+    } catch (e) {
+      lines.push(`❌ ${r.name}: ${e.message}`);
+    }
+  }
+  return { ok, lines, relayOn: !!state.settings.briefingRelay };
 }
 
 const fresh = (at, ttlMin, now) => at && now - at < ttlMin * MIN;
@@ -114,7 +162,7 @@ const fresh = (at, ttlMin, now) => at && now - at < ttlMin * MIN;
 async function fetchStations(icaos, now, force) {
   const need = icaos.filter((i) => force || !fresh(bstate.stations[i]?.fetchedAt, STATION_TTL_MIN, now));
   if (!need.length) return 0;
-  const [metars, tafs] = await Promise.all([getJson(metarUrl(need)).then(parseMetarJson), getJson(tafUrl(need)).then(parseTafJson)]);
+  const [metars, tafs] = await Promise.all([getAwc(metarUrl(need)).then(parseMetarJson), getAwc(tafUrl(need)).then(parseTafJson)]);
   for (const icao of need) {
     const old = bstate.stations[icao];
     const rec = { fetchedAt: now, metarRaw: metars[icao] ?? null, tafRaw: tafs[icao] ?? null, prevTafRaw: old?.prevTafRaw ?? null, prevAt: old?.prevAt ?? null, changedAt: old?.changedAt ?? null };
@@ -130,7 +178,7 @@ async function fetchStations(icaos, now, force) {
 
 async function fetchSigmets(now, force) {
   if (!force && fresh(bstate.sigmets.at, SIGMET_TTL_MIN, now)) return;
-  bstate.sigmets = { at: now, items: parseSigmets(await getJson(sigmetUrl())) };
+  bstate.sigmets = { at: now, items: parseSigmets(await getAwc(sigmetUrl())) };
 }
 
 async function fetchRoute(leg, now, force) {

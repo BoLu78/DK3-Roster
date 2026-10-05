@@ -43,3 +43,11 @@ export function parseTafJson(json) {
   }
   return out;
 }
+
+// Se il collegamento diretto è bloccato dal browser (manca il permesso CORS) si può passare da un servizio
+// intermedio pubblico. Vede solo l'indirizzo richiesto, cioè i codici ICAO: mai i tuoi turni.
+export const RELAYS = [
+  { name: 'allorigins.win', url: (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` },
+  { name: 'codetabs.com', url: (u) => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(u)}` },
+  { name: 'thingproxy', url: (u) => `https://thingproxy.freeboard.io/fetch/${u}` },
+];

@@ -1,6 +1,6 @@
 // Service worker: l'app funziona offline. Tutti i file sono messi in cache
 // all'installazione; quando cambia VERSION si scarica tutto di nuovo.
-const VERSION = '1.8.1';
+const VERSION = '1.8.2';
 const CACHE = `dk3-roster-${VERSION}`;
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',

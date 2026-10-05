@@ -175,6 +175,11 @@ export function renderMore(view) {
     }
     actions.refresh();
   });
+  const relay = h('input', { type: 'checkbox', checked: !!s.briefingRelay });
+  relay.addEventListener('change', () => {
+    s.briefingRelay = relay.checked;
+    saveSettings();
+  });
   const ruleText = h('textarea', { rows: 5, placeholder: 'Incolla qui il testo che inizia con { "format": "dk3-rules"…', spellcheck: 'false', autocapitalize: 'off' });
   const bAt = bstate.at;
   parts.push(h('div', { class: 'card' }, h('h2', {}, 'Briefing voli'),
@@ -196,16 +201,20 @@ export function renderMore(view) {
     bstate.rules ? h('button', { class: 'btn secondary', onclick: () => { if (confirm('Togliere le regole di compagnia da questo telefono?')) { clearRules(); actions.refresh(); } } }, 'Togli le regole') : null,
     h('button', { class: 'btn secondary', onclick: async () => {
       actions.toast('Provo il collegamento…');
-      try {
-        const m = await testConnection();
-        alert(`Collegamento riuscito.\n\n${m}`);
-      } catch (e) {
-        alert(`Il collegamento non è riuscito: ${e.message ?? e}.\n\nControlla la connessione. Se il problema resta dimmelo: il servizio potrebbe non accettare richieste dall'app.`);
+      let r = await testConnection();
+      if (r.ok == null && !r.relayOn && confirm(`Il collegamento diretto non funziona:\n${r.lines.join('\n')}\n\nAviationweather.gov non permette alle app di leggere i suoi dati. Vuoi provare con un servizio intermedio pubblico (allorigins.win, codetabs.com)? Vede solo i codici degli aeroporti richiesti e il tuo indirizzo di rete, mai i tuoi turni.`)) {
+        s.briefingRelay = true;
+        saveSettings();
+        actions.toast('Riprovo con il servizio intermedio…');
+        r = await testConnection();
       }
+      alert(`${r.ok ? 'Collegamento riuscito.' : 'Collegamento NON riuscito.'}\n\n${r.lines.join('\n')}${r.ok ? `\n\n${r.ok}` : '\n\nFai uno screenshot di questo messaggio e mandamelo.'}`);
+      actions.refresh();
     } }, 'Prova il collegamento'),
+    h('label', { class: 'field' }, h('span', {}, 'Consenti servizio intermedio pubblico'), relay),
     s.briefingOn ? h('button', { class: 'btn secondary', onclick: async () => { actions.toast('Aggiorno il briefing…'); await autoRefresh({ force: true }); actions.refresh(); } }, 'Aggiorna ora') : null,
     h('button', { class: 'btn danger', onclick: () => { if (confirm('Cancellare i dati del briefing (meteo, NOTAM incollati)?')) { clearBriefing(); actions.refresh(); } } }, 'Cancella i dati del briefing'),
-    h('p', { class: 'muted', style: 'font-size:13px;margin-top:8px' }, 'Spento di default. Se acceso, per i voli a meno di 36 ore l’app chiede METAR, TAF e SIGMET ad aviationweather.gov (NOAA, gratuito, senza account) e le previsioni lungo la rotta a Open-Meteo. Nelle richieste ci sono solo codici ICAO, coordinate e date: nessun dato del roster. I NOTAM non si scaricano: li incolli tu. Le regole di compagnia restano solo su questo telefono. Si aggiorna quando l’app è aperta.')));
+    h('p', { class: 'muted', style: 'font-size:13px;margin-top:8px' }, 'Spento di default. Se acceso, per i voli a meno di 36 ore l’app chiede METAR, TAF e SIGMET ad aviationweather.gov (NOAA, gratuito, senza account) e le previsioni lungo la rotta a Open-Meteo. Nelle richieste ci sono solo codici ICAO, coordinate e date: nessun dato del roster. Se aviationweather.gov blocca il collegamento diretto, puoi consentire un servizio intermedio pubblico (vede solo i codici ICAO). I NOTAM non si scaricano: li incolli tu. Le regole di compagnia restano solo su questo telefono. Si aggiorna quando l’app è aperta.')));
 
   // soglie scadenze
   const warn = h('input', { type: 'number', min: 1, max: 365, value: s.warn, inputmode: 'numeric' });

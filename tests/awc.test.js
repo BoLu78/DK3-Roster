@@ -89,3 +89,15 @@ test('SIGMET: poligono e passaggio sulla rotta', () => {
   const old = parseSigmets([{ ...{ seriesId: 'A1', hazard: 'TS', validTimeFrom: Z('2026-10-05T01:00:00Z') / 1000, validTimeTo: Z('2026-10-05T05:00:00Z') / 1000, coords: [{ lat: 35, lon: -12 }, { lat: 35, lon: -6 }, { lat: 30, lon: -6 }, { lat: 30, lon: -12 }] } }]);
   assert.equal(sigmetHits(old, route).length, 0);
 });
+
+test('servizi intermedi: l\'indirizzo passa codificato e senza dati del roster', async () => {
+  const { RELAYS } = await import('../src/awc.js');
+  const u = metarUrl(['LIMC', 'GCFV']);
+  assert.equal(RELAYS.length, 3);
+  for (const r of RELAYS) {
+    const via = r.url(u);
+    assert.ok(via.startsWith('https://'));
+    assert.ok(decodeURIComponent(via).includes(u) || via.includes(u));
+    assert.ok(!/roster|crew|user/i.test(via));
+  }
+});

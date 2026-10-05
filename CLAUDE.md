@@ -23,6 +23,8 @@ L'utente è un comandante B737 Neos, base MXP. **Non è un programmatore.**
   - meteo previsto da Open-Meteo (2 ott 2026): solo coordinate degli aeroporti e date;
   - **Briefing** (5 ott 2026): METAR, TAF e SIGMET da aviationweather.gov (NOAA) con i soli codici ICAO,
     e previsioni lungo la rotta da Open-Meteo con le sole coordinate dei punti di rotta e le date.
+  - se aviationweather.gov non risponde al browser (manca il permesso CORS), l'utente può consentire (opzione spenta di default)
+    un servizio intermedio pubblico (allorigins.win, codetabs.com, thingproxy): vede solo gli indirizzi richiesti, cioè i codici ICAO.
   Mai dati del roster nelle richieste. I NOTAM non si scaricano: li incolla l'utente e l'app li legge in locale.
   Nessun'altra chiamata di rete.
 - Le librerie esterne (pdf.js) si copiano in `vendor/`, non si caricano da CDN:
