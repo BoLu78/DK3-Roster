@@ -19,9 +19,12 @@ L'utente è un comandante B737 Neos, base MXP. **Non è un programmatore.**
 - Hosting: GitHub Pages (repo pubblico, account `BoLu78`).
 - **Nessun backend, nessun token, nessuna chiamata di rete con dati dell'utente.**
   I turni restano solo sul dispositivo, in IndexedDB.
-  **Unica eccezione, approvata dall'utente (2 ott 2026): il meteo**, opzionale e spento di default,
-  da Open-Meteo (gratuito, senza account né chiave). Nella richiesta vanno solo le coordinate
-  degli aeroporti e le date, mai dati del roster. Nessun'altra chiamata di rete.
+  **Eccezioni, approvate dall'utente, tutte opzionali e spente di default** (nessun account, nessuna chiave):
+  - meteo previsto da Open-Meteo (2 ott 2026): solo coordinate degli aeroporti e date;
+  - **Briefing** (5 ott 2026): METAR, TAF e SIGMET da aviationweather.gov (NOAA) con i soli codici ICAO,
+    e previsioni lungo la rotta da Open-Meteo con le sole coordinate dei punti di rotta e le date.
+  Mai dati del roster nelle richieste. I NOTAM non si scaricano: li incolla l'utente e l'app li legge in locale.
+  Nessun'altra chiamata di rete.
 - Le librerie esterne (pdf.js) si copiano in `vendor/`, non si caricano da CDN:
   l'app deve funzionare offline.
 - Target principale: Safari iOS, installata su schermata Home.
@@ -32,7 +35,10 @@ Il repository è pubblico. Non devono mai finire in git:
 
 - i PDF dei turni (`samples/` è in .gitignore);
 - nomi di colleghi, matricole, o valori attesi ricavati da turni reali.
-  I valori attesi dei test stanno in `samples/expected/`, quindi fuori da git.
+  I valori attesi dei test stanno in `samples/expected/`, quindi fuori da git;
+- il manuale operativo (OM-A) e i numeri di compagnia (minime, distanze alternati): sono "NEOS Proprietary".
+  Il Briefing li legge da un file `.json` che l'utente importa nell'app (resta solo sul telefono, in localStorage);
+  una copia di lavoro sta in `samples/regole-neos.json`. Nei test usare numeri di prova diversi dai reali.
 
 ## Il PDF
 
@@ -56,6 +62,9 @@ Il repository è pubblico. Non devono mai finire in git:
 - Scadenze Recurrent Training/Checks con avviso.
 - Al re-import: evidenziare cosa è cambiato rispetto alla versione precedente.
 - Export `.ics`.
+- **Briefing** (nel dettaglio di un giorno di volo, tasto sotto il titolo): threat meteo per aeroporto nella finestra
+  ETA/ETD ±1 h, rotta diretta con instabilità e SIGMET, NOTAM incollati, alternato al decollo / alternato / doppio
+  alternato secondo le regole importate (OM-A 8.1.0.x). Si prepara per i voli a meno di 36 ore e si aggiorna quando l'app è aperta.
 
 ## Test
 

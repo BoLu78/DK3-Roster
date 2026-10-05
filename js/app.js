@@ -14,6 +14,8 @@ import { renderMore, showImportSheet, restoreBackup } from './views-more.js';
 import { renderMap } from './views-map.js';
 import { loadWeather, refreshWeather } from './weather-ui.js';
 import { showDetail } from './views-detail.js';
+import { showBriefing } from './views-briefing.js';
+import { loadBriefing, autoRefresh } from './briefing-store.js';
 
 const $ = (id) => document.getElementById(id);
 const view = $('view');
@@ -121,6 +123,7 @@ actions.openDay = (date) => {
   showDetail(date);
 };
 actions.closeSheet = () => {
+  showBriefing.current = null;
   $('sheet').hidden = true;
   $('sheet').replaceChildren();
 };
@@ -174,9 +177,24 @@ $('restore').addEventListener('change', async (ev) => {
   }
 });
 window.addEventListener('popstate', () => actions.closeSheet());
+// Briefing: si prepara da solo per i voli a meno di 36 ore e si aggiorna quando l'app è aperta
+async function updateBriefing(force = false) {
+  if (!hasData() || !state.settings.briefingOn) return;
+  const changed = await autoRefresh({ force });
+  if (!changed || $('sheet').hidden) return;
+  if (document.activeElement?.closest?.('#sheet') && /^(TEXTAREA|INPUT)$/.test(document.activeElement.tagName)) return; // l'utente sta scrivendo
+  if (showBriefing.current) showBriefing.render?.();
+  else if (showDetail.current) {
+    const b = $('sheet').querySelector('.body');
+    const top = b?.scrollTop ?? 0;
+    showDetail(showDetail.current);
+    const nb = $('sheet').querySelector('.body');
+    if (nb) nb.scrollTop = top;
+  }
+}
 async function updateWeather(force = false) {
   if (await refreshWeather({ force })) {
-    const open = !$('sheet').hidden;
+    const open = !$('sheet').hidden && !showBriefing.current;
     const body = $('sheet').querySelector('.body');
     const top = body?.scrollTop ?? 0;
     render();
@@ -191,12 +209,17 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && hasData()) {
     render(); // aggiorna "oggi" e le scadenze
     updateWeather(); // il meteo si riscarica se ha più di 3 ore
+    updateBriefing(); // METAR/TAF si riscaricano se hanno più di 20 minuti
   }
 });
+setInterval(() => {
+  if (document.visibilityState === 'visible') updateBriefing();
+}, 10 * 60 * 1000);
 
 // ---------------------------------------------------------------- avvio
 window.__dk3 = { state, importBuffer, actions };
 loadWeather();
+loadBriefing();
 try {
   await load();
 } catch (e) {
@@ -205,6 +228,7 @@ try {
 }
 render();
 updateWeather();
+updateBriefing();
 navigator.storage?.persist?.().catch(() => {});
 
 // in sviluppo (localhost) il service worker è spento, per vedere subito le modifiche; si prova con ?sw

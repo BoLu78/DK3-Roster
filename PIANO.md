@@ -69,6 +69,21 @@ Risultato: app installata sull'iPhone che importa un PDF e ricorda i dati.
 - Gestione errori (PDF non riconosciuto, formato cambiato)
 - Backup/ripristino dei dati su file
 
+## Fase 9 — Briefing voli ✅ (5 ott 2026, da provare sull'iPhone)
+
+- `src/metar.js` lettura METAR/TAF e valutazione di una finestra (prevalente, TEMPO, PROB30/40, BECMG, FM)
+- `src/briefing.js` threat per aeroporto, rotazione breve, alternato al decollo / destinazione / doppio alternato
+- `src/rules.js` regole di compagnia da file importato (mai nel repository); `src/icao.js` IATA→ICAO e aeroporti vicini
+- `src/route-wx.js` rotta diretta: instabilità (Open-Meteo, CAPE) e SIGMET (aviationweather.gov)
+- `src/notam.js` NOTAM incollati: piste chiuse, ILS fuori servizio, carburante, luci, GNSS…
+- `src/sun.js` tramonto/alba e atterraggio di notte
+- `js/briefing-store.js`, `js/views-briefing.js`: dati sul telefono, scarico, schermata
+- Test: `tests/metar.test.js`, `briefing.test.js`, `awc.test.js`, `notam.test.js` (dati inventati, numeri di prova)
+
+Da verificare sull'iPhone: che aviationweather.gov risponda al browser (pulsante "Prova il collegamento" in Altro → Briefing).
+Idee per dopo: scegliere l'approccio (ILS/NPA/circling) per ogni aeroporto dentro l'app; vento al traverso per pista;
+etichetta "briefing" nella lista dei turni; NOTAM automatici (richiederebbero una chiave FAA).
+
 ## Stato attuale (2 ott 2026)
 
 Tutte le funzioni sono scritte e provate nel browser del Mac (formato iPhone, anche offline).
