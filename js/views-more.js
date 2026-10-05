@@ -175,12 +175,24 @@ export function renderMore(view) {
     }
     actions.refresh();
   });
+  const ruleText = h('textarea', { rows: 5, placeholder: 'Incolla qui il testo che inizia con { "format": "dk3-rules"…', spellcheck: 'false', autocapitalize: 'off' });
   const bAt = bstate.at;
   parts.push(h('div', { class: 'card' }, h('h2', {}, 'Briefing voli'),
     h('label', { class: 'field' }, h('span', {}, 'Prepara il briefing (usa internet)'), bf),
     s.briefingOn ? h('div', { class: 'muted', style: 'font-size:13px' }, bAt ? `Ultimo aggiornamento: ${new Date(bAt).toLocaleString('it-IT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : 'Ancora nessun aggiornamento.') : null,
     h('div', { class: bstate.rules ? 'muted' : 'bad', style: 'font-size:13px;margin-top:4px' }, bstate.rules ? `Regole importate${bstate.rules.company ? `: ${bstate.rules.company}` : ''}${bstate.rules.fleet ? ` ${bstate.rules.fleet}` : ''}` : bstate.rulesError ?? 'Regole di compagnia non importate: gli alternati non vengono valutati.'),
     h('button', { class: 'btn secondary', style: 'margin-top:8px', onclick: () => rulesFile.click() }, bstate.rules ? 'Sostituisci le regole (.json)' : 'Importa le regole (.json)'), rulesFile,
+    h('details', { class: 'bf-more' }, h('summary', {}, 'Oppure incolla il testo delle regole'),
+      ruleText, h('button', { class: 'btn secondary', style: 'margin-top:8px', onclick: () => {
+        try {
+          importRules(ruleText.value);
+          ruleText.value = '';
+          actions.toast('Regole importate');
+          actions.refresh();
+        } catch (e) {
+          alert(e instanceof SyntaxError ? 'Il testo incollato non è completo: copialo di nuovo dall’inizio alla fine.' : e.message ?? String(e));
+        }
+      } }, 'Importa dal testo')),
     bstate.rules ? h('button', { class: 'btn secondary', onclick: () => { if (confirm('Togliere le regole di compagnia da questo telefono?')) { clearRules(); actions.refresh(); } } }, 'Togli le regole') : null,
     h('button', { class: 'btn secondary', onclick: async () => {
       actions.toast('Provo il collegamento…');

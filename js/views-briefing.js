@@ -197,7 +197,8 @@ function rulesCard(rerender) {
   return h('div', { class: 'card' }, h('h2', {}, 'Regole di compagnia non importate'),
     bstate.rulesError ? h('p', { class: 'bad bf-small' }, bstate.rulesError) : null,
     h('p', {}, 'Senza le regole vedi meteo e threat, ma l’app non decide alternato al decollo e doppio alternato.'),
-    h('button', { class: 'btn secondary', style: 'margin-top:8px', onclick: () => file.click() }, 'Importa file regole (.json)'), file);
+    h('button', { class: 'btn secondary', style: 'margin-top:8px', onclick: () => file.click() }, 'Importa file regole (.json)'), file,
+    h('p', { class: 'muted bf-small', style: 'margin-top:8px' }, 'Oppure incolla il testo delle regole in Altro → Briefing voli.'));
 }
 
 function summaryCard(brief) {
