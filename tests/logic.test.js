@@ -231,3 +231,20 @@ test('famiglia: casa, rotazione su più giorni, notti, UID stabili', async () =>
   assert.ok(r.includes('SUMMARY:⏳ Reserve'));
   assert.ok(!r.includes('A casa'), 'stand-by e reserve non devono dire "A casa"');
 });
+
+test('pallini: un import visto singolarmente giorno per giorno diventa visto', async () => {
+  const { pendingChangeDates, withDaySeen, changeDatesOf } = await import('../src/merge.js');
+  const imp = { id: 1, seen: false, changes: { count: 2, added: [{ date: '2026-10-03', lines: ['x'] }], removed: [], changed: [{ date: '2026-10-08', lines: ['y'] }] } };
+  assert.deepEqual(changeDatesOf(imp), ['2026-10-03', '2026-10-08']);
+  assert.equal(pendingChangeDates([imp]).size, 2);
+  const a = withDaySeen(imp, '2026-10-03');
+  assert.equal(a.seen, false);
+  assert.deepEqual([...pendingChangeDates([a]).keys()], ['2026-10-08']);
+  const b = withDaySeen(a, '2026-10-08');
+  assert.equal(b.seen, true);
+  assert.equal(pendingChangeDates([b]).size, 0);
+  // due import non visti: i pallini sono la somma, e sparisce tutto solo se tutti sono visti
+  const older = { id: 0, seen: false, changes: { count: 1, added: [], removed: [], changed: [{ date: '2026-10-20', lines: ['z'] }] } };
+  assert.equal(pendingChangeDates([older, a]).size, 2);
+  assert.equal(pendingChangeDates([{ ...older, seen: true }, { ...a, seen: true }]).size, 0);
+});

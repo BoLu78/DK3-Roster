@@ -9,6 +9,7 @@ import { buildDayTimeline, durationMin, fmtDuration, fmtUtc, utcOffsetHours } fr
 import { arrowRoute, tailLines } from './views-list.js';
 import { collectRoutes } from '../src/geo.js';
 import { createMap } from './map.js';
+import { markDaySeen } from './seen.js';
 
 const sheet = () => document.getElementById('sheet');
 
@@ -103,7 +104,8 @@ function body(day) {
 
   for (const t of tailLines(day.date)) parts.push(h('div', { class: 'card', style: 'padding:10px 14px' }, t));
   const pend = state.pending.get(day.date);
-  if (pend) parts.push(h('div', { class: 'card changes' }, h('h2', {}, `Modificato dall'ultimo import (${{ added: 'aggiunto', removed: 'tolto', changed: 'cambiato' }[pend.kind]})`), h('ul', {}, pend.lines.map((l) => h('li', {}, l)))));
+  if (pend) parts.push(h('div', { class: 'card changes' }, h('h2', {}, `Modificato dall'ultimo import (${{ added: 'aggiunto', removed: 'tolto', changed: 'cambiato' }[pend.kind]})`), h('ul', {}, pend.lines.map((l) => h('li', {}, l))),
+    h('button', { class: 'btn secondary', style: 'margin-top:10px', onclick: async () => { await markDaySeen(day.date); await actions.refresh(); showDetail(day.date); } }, 'Visto: togli il pallino di questo giorno')));
 
   const cells = [];
   if (day.ft != null || day.dt != null) {

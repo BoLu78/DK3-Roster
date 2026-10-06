@@ -102,7 +102,7 @@ function homeChip(day) {
 export function ftlChip(day) {
   const d = state.ftl?.byDate.get(day.date)?.duties.find((x) => x.fdp && x.dates[0] === day.date);
   if (!d || d.status == null) return null;
-  return h('span', { class: `ftl ftl-${d.status}` }, `FDP ${fmtHM(d.fdp.min)} / ${fmtHM(d.limits.used)}${d.status === 'ext' ? ' Ext' : ''}`);
+  return h('span', { class: `ftl ftl-${d.status}` }, `FDP ${fmtHM(d.fdp.min)} / ${fmtHM(d.limits.used)}${d.limitKind === 'ext' ? ' Ext' : ''}`);
 }
 
 function dayRow(day, today) {
@@ -124,6 +124,7 @@ function dayRow(day, today) {
   return h('button', { class: cls, onclick: () => actions.openDay(day.date), 'aria-label': day.date }, dt, h('div', { class: 'bar' }), main);
 }
 
+import { markAllSeen } from './seen.js';
 const lastChanged = () => [...state.imports].filter((i) => i.changes && !i.seen).sort((a, b) => b.importedAt.localeCompare(a.importedAt))[0];
 
 export function nextDuty() {
@@ -158,7 +159,12 @@ export function renderList(view) {
     frag.push(h('button', { class: 'banner alert', onclick: () => actions.go('exp') }, h('span', {}, '⚠️'), h('span', {}, h('b', {}, exp ? `${exp} scadut${exp === 1 ? 'a' : 'e'}` : `${rec.length} in scadenza`), exp && rec.length > exp ? ` · ${rec.length - exp} in scadenza` : ''), h('span', { class: 'go' }, 'Vedi ›')));
   }
   const ch = days.filter((d) => state.pending.has(d.date));
-  if (ch.length) frag.push(h('button', { class: 'banner change', onclick: () => showImportSheet(lastChanged()) }, h('span', {}, '🔄'), h('span', {}, h('b', {}, `${ch.length} giorn${ch.length === 1 ? 'o' : 'i'} modificat${ch.length === 1 ? 'o' : 'i'}`), ' dall’ultimo import'), h('span', { class: 'go' }, 'Vedi ›')));
+  if (state.pending.size) {
+    const here = ch.length;
+    frag.push(h('div', { class: 'banner change' },
+      h('button', { class: 'bn-main', onclick: () => showImportSheet(lastChanged()) }, h('span', {}, '🔄'), h('span', {}, h('b', {}, here ? `${here} giorn${here === 1 ? 'o' : 'i'} modificat${here === 1 ? 'o' : 'i'}` : `${state.pending.size} giorn${state.pending.size === 1 ? 'o' : 'i'} modificat${state.pending.size === 1 ? 'o' : 'i'} in altri mesi`), ' dall’ultimo import'), h('span', { class: 'go' }, 'Vedi ›')),
+      h('button', { class: 'bn-clear', onclick: async () => { await markAllSeen(); await actions.refresh(); actions.toast('Pallini tolti'); } }, 'Togli i pallini')));
+  }
 
   const s = monthSummary(days);
   frag.push(h('div', { class: 'summary' },

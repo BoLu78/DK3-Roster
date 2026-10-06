@@ -97,3 +97,55 @@ test('riposo: parte dalla fine dello stand-by precedente (caso verificato con l�
   assert.equal(r.duties[0].limits.basic, m(13));
   assert.equal(r.duties[0].limits.discretion, m(15));
 });
+
+test('E_FDP: servizio pianificato con estensione, vale il massimo esteso', () => {
+  // 8 ottobre: presentazione 05:00Z = 07:00 locale, 3 settori -> base 12:30, con estensione 13:30
+  const legs3 = (lastArr) => [flight('1', 'MXP', 'LXR', '0600', '1010'), flight('2', 'LXR', 'CAI', '1100', '1210'), flight('3', 'CAI', 'MXP', '1300', lastArr)];
+  const AP = { MXP: { country: 'ITALY' }, LXR: { country: 'EGYPT' }, CAI: { country: 'EGYPT' } };
+  const mk = (lastArr, flags) => day('2026-10-08', legs3(lastArr), '0500', '1800', { flags });
+
+  // FDP 12:00 con E_FDP: entro il massimo base, ma il limite applicato è quello esteso
+  let d = analyze([mk('1700', ['E_FDP'])], { base: 'MXP', airports: AP }).duties[0];
+  assert.equal(d.fdp.min, m(12));
+  assert.equal(d.limits.basic, m(12, 30));
+  assert.equal(d.limits.ext, m(13, 30));
+  assert.equal(d.limits.used, m(13, 30));
+  assert.equal(d.extPlanned, true);
+  assert.equal(d.limitKind, 'ext');
+  assert.equal(d.status, 'ok');
+  assert.equal(d.gapMin, m(1, 30));
+  assert.equal(d.limits.discretion, null); // niente discrezione sopra l'estensione
+  assert.ok(d.notes.some((n) => /E_FDP/.test(n)));
+
+  // stesso servizio senza E_FDP: limite base, "al limite"
+  d = analyze([mk('1700', [])], { base: 'MXP', airports: AP }).duties[0];
+  assert.equal(d.limits.used, m(12, 30));
+  assert.equal(d.status, 'warn');
+  assert.equal(d.extPlanned, undefined);
+  assert.equal(d.limits.discretion, m(14, 30));
+
+  // FDP 13:00: oltre il base. Con E_FDP è regolare, senza E_FDP richiede l'estensione e lo segnala
+  let r = analyze([mk('1800', ['E_FDP'])], { base: 'MXP', airports: AP });
+  assert.equal(r.duties[0].status, 'warn'); // 13:00 su 13:30: a 30 min dal limite
+  assert.equal(r.duties[0].limitKind, 'ext');
+  assert.ok(r.issues.some((i) => i.severity === 'info' && /estensione pianificata/.test(i.text)));
+  assert.ok(!r.issues.some((i) => i.severity === 'bad'));
+  r = analyze([mk('1800', [])], { base: 'MXP', airports: AP });
+  assert.equal(r.duties[0].status, 'ext');
+  assert.ok(r.issues.some((i) => /manca E_FDP|non c’è E_FDP/.test(i.text)));
+
+  // oltre il massimo esteso (14:00 > 13:30): fuori limite anche con E_FDP
+  r = analyze([mk('1930', ['E_FDP'])], { base: 'MXP', airports: AP });
+  assert.equal(r.duties[0].status, 'over');
+  assert.ok(r.issues.some((i) => i.severity === 'bad'));
+});
+
+test('E_FDP dove la tabella dell\'estensione non c\'è: resta il massimo base e lo dice', () => {
+  // inizio 17:00 locale (15:00Z), 4 settori: la tabella estesa non lo prevede
+  const AP = { MXP: { country: 'ITALY' }, RMF: { country: 'EGYPT' } };
+  const legs = [flight('1', 'MXP', 'RMF', '1600', '1900'), flight('2', 'RMF', 'MXP', '1950', '2250'), flight('3', 'MXP', 'RMF', '2330', '0230'), flight('4', 'RMF', 'MXP', '0300', '0600')];
+  const d = analyze([day('2026-10-08', legs, '1500', '0630', { flags: ['E_FDP'] })], { base: 'MXP', airports: AP }).duties[0];
+  assert.equal(d.limits.ext, null);
+  assert.notEqual(d.extPlanned, true);
+  assert.ok(d.notes.some((n) => /E_FDP nel roster/.test(n)));
+});

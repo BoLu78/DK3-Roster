@@ -61,7 +61,9 @@ small, .muted { color: var(--muted); }
 /* banner */
 .banner { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-radius: 12px; margin: 8px 0; text-align: left; width: 100%; font-size: 15px; }
 .banner b { font-weight: 700; }
-.banner.change { background: var(--k-standby-bg); color: var(--text); border: 1px solid var(--k-standby); }
+.banner.change { background: var(--k-standby-bg); color: var(--text); border: 1px solid var(--k-standby); flex-wrap: wrap; }
+.banner .bn-main { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 220px; text-align: left; }
+.banner .bn-clear { color: var(--accent); font-weight: 600; padding: 6px 10px; border-radius: 10px; background: var(--chip); white-space: nowrap; }
 .banner.alert { background: color-mix(in srgb, var(--danger) 13%, transparent); border: 1px solid var(--danger); }
 .banner .go { margin-left: auto; color: var(--accent); font-weight: 600; }
 

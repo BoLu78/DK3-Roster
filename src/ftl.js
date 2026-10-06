@@ -115,7 +115,7 @@ export { fmtHM };
 // ---------------------------------------------------------------- analisi di un servizio
 export const dutyKey = (d) => `${d.startMs}`;
 
-function analyzeDuty(duty, trip, ctx, crew) {
+function analyzeDuty(duty, trip, ctx, crew, extFlag = false) {
   const legs = duty.legs.map((l) => l.leg);
   const flights = duty.legs.filter((l) => l.leg.kind === 'flight');
   const ciApt = duty.ci?.airport ?? legs[0]?.dep ?? ctx.base;
@@ -167,17 +167,25 @@ function analyzeDuty(duty, trip, ctx, crew) {
   const inflight = inflightRestMax(crew, sectors, restClass, longSector);
   out.limits = { basic, ext, inflight, restClass };
 
-  const used = inflight ? Math.max(basic ?? 0, inflight) : basic;
-  const discretion = used != null ? used + (inflight ? 180 : 120) : null;
+  // E_FDP nel roster = servizio pianificato con estensione: vale il massimo con estensione (OMA 7.1.7.2)
+  const extPlanned = extFlag && ext != null;
+  if (extFlag && ext == null) out.notes.push('E_FDP nel roster, ma la tabella dell’estensione non prevede questo orario o questo numero di settori: uso il massimo base');
+  const used = extPlanned ? (inflight ? Math.max(ext, inflight) : ext) : inflight ? Math.max(basic ?? 0, inflight) : basic;
+  // con l'estensione già pianificata non mostro la discrezione del comandante: non è prevista sopra il massimo esteso
+  const discretion = used != null && !extPlanned ? used + (inflight ? 180 : 120) : null;
   out.limits.discretion = discretion;
   out.limits.used = used;
+  if (extPlanned) {
+    out.extPlanned = true;
+    out.notes.push(`Estensione pianificata (E_FDP): massimo base ${fmtHM(basic)} + 1 h = ${fmtHM(ext)}${fdpMin <= basic ? ' (l’FDP è comunque entro il massimo base)' : ''}`);
+  }
   if (crew >= 3 && sectors > 3) out.notes.push('Riposo in volo non applicabile: massimo 3 settori');
 
   if (used == null) return out;
   if (fdpMin <= used) {
     out.gapMin = used - fdpMin;
     out.status = out.gapMin <= WARN_MARGIN_MIN ? 'warn' : 'ok';
-    out.limitKind = inflight && used === inflight && inflight > (basic ?? 0) ? 'inflight' : 'basic';
+    out.limitKind = extPlanned && !(inflight && used === inflight) ? 'ext' : inflight && used === inflight && inflight > (basic ?? 0) ? 'inflight' : 'basic';
     out.usedInflight = out.limitKind === 'inflight' && fdpMin > (basic ?? 0); // serve davvero il riposo in volo
     if (out.usedInflight) out.notes.push('Entro il limite solo con riposo in volo (equipaggio aumentato)');
   } else if (ext != null && fdpMin <= ext) {
@@ -188,7 +196,7 @@ function analyzeDuty(duty, trip, ctx, crew) {
   } else {
     out.gapMin = used - fdpMin;
     out.status = 'over';
-    out.limitKind = 'basic';
+    out.limitKind = extPlanned ? 'ext' : 'basic';
     if (discretion != null && fdpMin <= discretion) out.notes.push('Entro la discrezione del comandante (solo riferimento)');
   }
   return out;
@@ -283,15 +291,17 @@ export function analyze(days, options) {
   const trips = buildTrips(sorted, base);
   const tripOf = new Map();
   for (const tr of trips) for (const d of tr.duties) tripOf.set(d, tr);
-  const duties = buildDuties(sorted).map((d) => analyzeDuty(d, tripOf.get(d), ctx, crewByDuty[dutyKey(d)] ?? 2));
+  const extDates = new Set(sorted.filter((d) => d.flags?.includes('E_FDP')).map((d) => d.date));
+  const duties = buildDuties(sorted).map((d) => analyzeDuty(d, tripOf.get(d), ctx, crewByDuty[dutyKey(d)] ?? 2, d.dates.some((x) => extDates.has(x))));
   const issues = [];
   const add = (severity, date, text, extra = {}) => issues.push({ severity, date, text, ...extra });
 
   for (const d of duties) {
     const date = isoDate(d.startMs);
     if (d.status === 'over') add('bad', date, `FDP ${fmtHM(d.fdp.min)} sopra il massimo ${fmtHM(d.limits.used)} (${d.fdp.sectors} settori)`);
-    else if (d.status === 'ext') add('warn', date, `FDP ${fmtHM(d.fdp.min)} oltre il massimo base ${fmtHM(d.limits.basic)}: richiede estensione (Ext)`);
+    else if (d.status === 'ext') add('warn', date, `FDP ${fmtHM(d.fdp.min)} oltre il massimo base ${fmtHM(d.limits.basic)}: richiede estensione (Ext), ma nel roster non c’è E_FDP`);
     else if (d.status === 'warn') add('warn', date, `FDP ${fmtHM(d.fdp.min)} al limite (massimo ${fmtHM(d.limits.used)})`);
+    if (d.extPlanned && d.fdp.min > d.limits.basic && d.status !== 'over') add('info', date, `FDP ${fmtHM(d.fdp.min)} con estensione pianificata (E_FDP): massimo ${fmtHM(d.limits.used)}`);
     if (d.acclimatisation?.state === 'X') add('info', date, 'Stato di acclimatazione sconosciuto (X): uso la tabella più restrittiva');
     if (d.tzUnknown) add('info', date, `Fuso di ${d.ciApt} non noto: uso l’ora di base`);
   }

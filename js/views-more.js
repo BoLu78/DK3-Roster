@@ -7,6 +7,7 @@ import { buildFamilyIcs } from '../src/family.js';
 import { deleteImport, clearImports, replaceImports, putImport, allImports } from './db.js';
 import { VERSION } from './version.js';
 import { refreshWeather, clearWeather } from './weather-ui.js';
+import { markAllSeen } from './seen.js';
 
 const sheet = () => document.getElementById('sheet');
 
@@ -50,7 +51,7 @@ export function showImportSheet(imp, { fresh = false } = {}) {
           h('div', { class: 'cmp' }, h('span', {}, 'Giorni Off'), h('span', {}, `${c.computed.offDays} (PDF ${c.printed.offDays ?? '—'})`, mark(c.offOk)))),
         r.warnings?.length ? h('div', { class: 'bad', style: 'margin-top:8px' }, r.warnings.join(' · ')) : null),
       ch ? [h('div', { class: 'card changes' }, h('h2', {}, 'Cosa è cambiato rispetto alla versione precedente'), h('div', {}, `${ch.count} giorn${ch.count === 1 ? 'o' : 'i'}: ${ch.added.length} aggiunt${ch.added.length === 1 ? 'o' : 'i'}, ${ch.removed.length} tolt${ch.removed.length === 1 ? 'o' : 'i'}, ${ch.changed.length} modificat${ch.changed.length === 1 ? 'o' : 'i'}`)), group('Aggiunti', ch.added), group('Tolti', ch.removed), group('Modificati', ch.changed),
-        imp.seen ? null : h('button', { class: 'btn secondary', onclick: async () => { imp.seen = true; await putImport(imp); await actions.refresh(); actions.toast('Modifiche segnate come viste'); } }, 'Segna come viste (toglie i pallini)')]
+        imp.seen && !state.pending.size ? null : h('button', { class: 'btn secondary', onclick: async () => { await markAllSeen(); await actions.refresh(); actions.toast('Pallini tolti'); showImportSheet(state.imports.find((i) => i.id === imp.id) ?? imp); } }, 'Segna tutte come viste (toglie i pallini)')]
         : h('div', { class: 'card' }, h('h2', {}, 'Modifiche'), h('div', { class: 'muted' }, state.imports.length > 1 ? 'Nessuna modifica rispetto alla versione precedente.' : 'Primo import di questo periodo: niente da confrontare.')),
       h('button', { class: 'btn', onclick: () => actions.closeSheet() }, fresh ? 'Fine' : 'Chiudi'),
       fresh ? null : h('button', { class: 'btn danger', onclick: async () => { if (confirm('Eliminare questo import? I giorni tornano alla versione precedente.')) { await deleteImport(imp.id); actions.closeSheet(); await actions.refresh(); actions.toast('Import eliminato'); } } }, 'Elimina questo import')));
@@ -66,6 +67,11 @@ export function renderMore(view) {
     h('button', { class: 'btn', onclick: () => actions.pickPdf() }, 'Importa PDF dei turni'),
     h('p', { class: 'muted', style: 'font-size:13px;margin-top:8px' }, 'Scegli il file “Individual duty plan” da File o Mail. Il PDF viene letto sul telefono e non viene inviato da nessuna parte.')));
 
+  if (state.pending.size) {
+    parts.push(h('div', { class: 'card' }, h('h2', {}, 'Modifiche da vedere'),
+      h('div', {}, `${state.pending.size} giorn${state.pending.size === 1 ? 'o ha' : 'i hanno'} il pallino delle modifiche.`),
+      h('button', { class: 'btn secondary', style: 'margin-top:8px', onclick: async () => { await markAllSeen(); await actions.refresh(); actions.toast('Pallini tolti'); } }, 'Togli tutti i pallini')));
+  }
   if (imports.length) {
     parts.push(h('div', { class: 'card list' }, h('h2', {}, 'Cronologia import'), imports.map((imp) => {
       const r = imp.roster;

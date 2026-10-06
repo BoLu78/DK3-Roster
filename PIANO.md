@@ -75,6 +75,14 @@ Era stato scritto (METAR/TAF, alternati, NOTAM, rotta) ma l'utente ha deciso di 
 e il collegamento a aviationweather.gov non funzionava dal browser dell'iPhone. Codice rimosso con `git revert`;
 si può ritrovare nella cronologia (commit 8f28f47, 6c2448e, b401827).
 
+## Fase 10 — E_FDP e pallini delle modifiche ✅ (6 ott 2026, da provare sull'iPhone)
+
+- Servizio con `E_FDP` nel roster = pianificato con estensione: il calcolo FDP usa il massimo esteso (tabella OMA 7.1.7.2,
+  base + 1 h); niente discrezione sopra l'estensione; senza `E_FDP` un FDP oltre il base resta segnalato.
+  Non ancora applicate (serve il testo OMA-A cap. 7): condizioni sul riposo prima/dopo e numero massimo di estensioni.
+- Pallini: tasto "Togli i pallini" nel banner, "Visto" sul singolo giorno, scheda "Modifiche da vedere" in Altro;
+  il segno "visto" vale per tutti gli import, non solo l'ultimo.
+
 ## Stato attuale (2 ott 2026)
 
 Tutte le funzioni sono scritte e provate nel browser del Mac (formato iPhone, anche offline).
