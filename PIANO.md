@@ -79,7 +79,9 @@ si può ritrovare nella cronologia (commit 8f28f47, 6c2448e, b401827).
 
 - Servizio con `E_FDP` nel roster = pianificato con estensione: il calcolo FDP usa il massimo esteso (tabella OMA 7.1.7.2,
   base + 1 h); niente discrezione sopra l'estensione; senza `E_FDP` un FDP oltre il base resta segnalato.
-  Non ancora applicate (serve il testo OMA-A cap. 7): condizioni sul riposo prima/dopo e numero massimo di estensioni.
+  Regole del cap. 7 applicate (OMA 7.1.7.2, 7.2.1): niente riposo in volo (si blocca la scelta dei piloti), settori massimi in base alla WOCL
+  (5 / 4 / 2), massimo 2 estensioni in 7 giorni, riposo +2 h prima e dopo oppure +4 h dopo (tra due estese si sommano),
+  discrezione del comandante calcolata sul massimo base. La notifica "Ext" 10 h prima non è verificabile dal PDF.
 - Pallini: tasto "Togli i pallini" nel banner, "Visto" sul singolo giorno, scheda "Modifiche da vedere" in Altro;
   il segno "visto" vale per tutti gli import, non solo l'ultimo.
 

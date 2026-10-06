@@ -1,7 +1,7 @@
 // Test delle regole FTL con dati inventati (numeri dell'OMA cap. 7 / EASA ORO.FTL).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { basicFdpMax, extFdpMax, unknownFdpMax, inflightRestMax, analyze } from '../src/ftl.js';
+import { basicFdpMax, extFdpMax, unknownFdpMax, inflightRestMax, analyze, woclEncroachMin, extSectorCap } from '../src/ftl.js';
 
 const AIRPORTS = { MXP: { country: 'ITALY' }, RMF: { country: 'EGYPT' }, HAV: { country: 'CUBA' } };
 const m = (h, min = 0) => h * 60 + min;
@@ -114,7 +114,7 @@ test('E_FDP: servizio pianificato con estensione, vale il massimo esteso', () =>
   assert.equal(d.limitKind, 'ext');
   assert.equal(d.status, 'ok');
   assert.equal(d.gapMin, m(1, 30));
-  assert.equal(d.limits.discretion, null); // niente discrezione sopra l'estensione
+  assert.equal(d.limits.discretion, m(14, 30)); // la discrezione si calcola sul massimo base (12:30) + 2 h, OMA 7.2.1
   assert.ok(d.notes.some((n) => /E_FDP/.test(n)));
 
   // stesso servizio senza E_FDP: limite base, "al limite"
@@ -148,4 +148,85 @@ test('E_FDP dove la tabella dell\'estensione non c\'è: resta il massimo base e 
   assert.equal(d.limits.ext, null);
   assert.notEqual(d.extPlanned, true);
   assert.ok(d.notes.some((n) => /E_FDP nel roster/.test(n)));
+});
+
+test('E_FDP: equipaggio sempre standard, anche se avevo scelto più piloti', () => {
+  const AP = { MXP: { country: 'ITALY' }, RMF: { country: 'EGYPT' } };
+  const legs = [flight('1', 'MXP', 'RMF', '0600', '0900'), flight('2', 'RMF', 'MXP', '1000', '1300')];
+  const dd = day('2026-10-08', legs, '0500', '1330', { flags: ['E_FDP'] });
+  const first = analyze([dd], { base: 'MXP', airports: AP }).duties[0];
+  const r = analyze([dd], { base: 'MXP', airports: AP, crewByDuty: { [first.key]: 3 } }).duties[0];
+  assert.equal(r.crew, 2);
+  assert.equal(r.crewLocked, true);
+  assert.equal(r.limits.inflight, null);
+  // senza E_FDP la scelta dei piloti vale
+  const free = day('2026-10-08', legs, '0500', '1330');
+  const f1 = analyze([free], { base: 'MXP', airports: AP }).duties[0];
+  const f3 = analyze([free], { base: 'MXP', airports: AP, crewByDuty: { [f1.key]: 3 } }).duties[0];
+  assert.equal(f3.crew, 3);
+  assert.notEqual(f3.crewLocked, true);
+});
+
+test('E_FDP: settori ammessi in base alla WOCL (OMA 7.1.7.2)', () => {
+  assert.equal(woclEncroachMin(m(7, 0), m(12)), 0);
+  assert.equal(woclEncroachMin(m(15, 0), m(12)), 60); // finisce alle 03:00
+  assert.equal(woclEncroachMin(m(15, 0), m(13, 30)), 150); // finisce alle 04:30
+  assert.equal(woclEncroachMin(m(22, 0), m(10)), 240);
+  assert.equal(extSectorCap(0), 5);
+  assert.equal(extSectorCap(60), 4);
+  assert.equal(extSectorCap(120), 4);
+  assert.equal(extSectorCap(150), 2);
+  // inizio 15:00 locale (13:00Z), 3 settori, FDP 13:30 -> WOCL toccata 2 h 30: solo 2 settori, estensione non ammessa
+  const AP = { MXP: { country: 'ITALY' }, RMF: { country: 'EGYPT' } };
+  const legs = [flight('1', 'MXP', 'RMF', '1400', '1700'), flight('2', 'RMF', 'MXP', '1800', '2000'), flight('3', 'MXP', 'RMF', '2100', '0230')];
+  const d = analyze([day('2026-10-08', legs, '1300', '0300', { flags: ['E_FDP'] })], { base: 'MXP', airports: AP }).duties[0];
+  assert.equal(d.wocl, 150);
+  assert.equal(d.limits.ext, null);
+  assert.notEqual(d.extPlanned, true);
+  assert.ok(d.notes.some((n) => /ammessi?|ammessa/.test(n) && /2 settori/.test(n)));
+});
+
+test('E_FDP: riposi più lunghi prima e dopo (+2 h e +2 h, oppure +4 h dopo)', () => {
+  const AP = { MXP: { country: 'ITALY' }, RMF: { country: 'EGYPT' } };
+  const ext = (date, flags = ['E_FDP']) => day(date, [flight('1', 'MXP', 'RMF', '0600', '0900'), flight('2', 'RMF', 'MXP', '1000', '1300')], '0500', '1330', { flags });
+  // servizio esteso 8/10 (dutyMin 8:30) seguito da servizio normale con riposo = 12:00 + 3 h: basta il +2 h dopo
+  const normal = (date, ci) => day(date, [flight('3', 'MXP', 'RMF', `${String(Number(ci.slice(0, 2)) + 1).padStart(2, '0')}00`, `${String(Number(ci.slice(0, 2)) + 4).padStart(2, '0')}00`), flight('4', 'RMF', 'MXP', `${String(Number(ci.slice(0, 2)) + 5).padStart(2, '0')}00`, `${String(Number(ci.slice(0, 2)) + 8).padStart(2, '0')}00`)], ci, `${String(Number(ci.slice(0, 2)) + 8).padStart(2, '0')}30`);
+  // fine C/O 13:30Z del 8; prossimo C/I 04:30Z del 9 = 15 h di riposo; base = max(8:30, 12:00) = 12:00 -> +2 h = 14:00 ok
+  let r = analyze([ext('2026-10-08'), normal('2026-10-09', '0430')], { base: 'MXP', airports: AP });
+  let rest = r.rests[0];
+  assert.equal(rest.restMin, m(15));
+  assert.equal(rest.needMin, m(14));
+  assert.equal(rest.status, 'ok');
+  assert.ok(rest.why.some((w) => /FDP esteso/.test(w)));
+  // riposo di 13 h: sotto 12 + 2 h, ma anche +4 h dopo sarebbe peggio: carenza
+  r = analyze([ext('2026-10-08'), normal('2026-10-09', '0230')], { base: 'MXP', airports: AP });
+  rest = r.rests[0];
+  assert.equal(rest.restMin, m(13));
+  assert.equal(rest.status, 'over');
+  assert.ok(r.issues.some((i) => i.severity === 'bad' && /Riposo/.test(i.text)));
+  // senza E_FDP lo stesso riposo da 13 h va bene
+  r = analyze([ext('2026-10-08', []), normal('2026-10-09', '0230')], { base: 'MXP', airports: AP });
+  assert.equal(r.rests[0].status, 'ok');
+  // due servizi estesi di fila: C/O 13:30Z -> C/I 05:00Z = 15:30 h di riposo.
+  // Il secondo può scegliere +4 h dopo di sé (niente supplemento prima): in mezzo basta il +2 h dopo il primo = 14:00
+  r = analyze([ext('2026-10-08'), ext('2026-10-09')], { base: 'MXP', airports: AP });
+  rest = r.rests[0];
+  assert.equal(rest.restMin, m(15, 30));
+  assert.equal(rest.needMin, m(14));
+  assert.equal(rest.status, 'ok');
+  // se il riposo in mezzo è corto, manca comunque
+  const quick = analyze([ext('2026-10-08'), day('2026-10-09', [flight('1', 'MXP', 'RMF', '0400', '0700'), flight('2', 'RMF', 'MXP', '0800', '1100')], '0300', '1130', { flags: ['E_FDP'] })], { base: 'MXP', airports: AP });
+  assert.equal(quick.rests[0].status, 'over');
+});
+
+test('E_FDP: massimo 2 estensioni in 7 giorni', () => {
+  const AP = { MXP: { country: 'ITALY' }, RMF: { country: 'EGYPT' } };
+  const mk = (date) => day(date, [flight('1', 'MXP', 'RMF', '0600', '0900'), flight('2', 'RMF', 'MXP', '1000', '1300')], '0500', '1330', { flags: ['E_FDP'] });
+  let r = analyze([mk('2026-10-08'), mk('2026-10-10')], { base: 'MXP', airports: AP });
+  assert.ok(!r.issues.some((i) => /in 7 giorni: massimo 2/.test(i.text)));
+  r = analyze([mk('2026-10-08'), mk('2026-10-10'), mk('2026-10-12')], { base: 'MXP', airports: AP });
+  assert.ok(r.issues.some((i) => i.severity === 'bad' && /3 estensioni FDP pianificate in 7 giorni/.test(i.text)));
+  // la quarta è fuori dai 7 giorni dalla prima
+  r = analyze([mk('2026-10-08'), mk('2026-10-10'), mk('2026-10-16')], { base: 'MXP', airports: AP });
+  assert.ok(!r.issues.some((i) => /in 7 giorni: massimo 2/.test(i.text)));
 });

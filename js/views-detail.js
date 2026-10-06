@@ -62,7 +62,9 @@ function fdpCard(d, day) {
     saveSettings();
     actions.ftlChanged(day.date);
   };
-  const seg = h('div', { class: 'crewseg' }, h('span', { class: 'muted' }, 'Piloti'), h('div', { class: 'seg' }, [2, 3, 4].map((n) => h('button', { 'aria-pressed': String(d.crew === n), onclick: () => setCrew(n) }, n === 2 ? '2 (standard)' : String(n)))));
+  const seg = d.crewLocked
+    ? h('div', { class: 'muted', style: 'font-size:13px;margin:6px 0' }, 'Equipaggio standard: con l’estensione pianificata (E_FDP) non si può usare il riposo in volo (OMA 7.1.7.2).')
+    : h('div', { class: 'crewseg' }, h('span', { class: 'muted' }, 'Piloti'), h('div', { class: 'seg' }, [2, 3, 4].map((n) => h('button', { 'aria-pressed': String(d.crew === n), onclick: () => setCrew(n) }, n === 2 ? '2 (standard)' : String(n)))));
   const kindTxt = { basic: 'tabella base', ext: 'con estensione (Ext)', inflight: 'con riposo in volo' }[d.limitKind] ?? 'tabella base';
   const sub = `${f.sectors} ${f.sectors === 1 ? 'settore' : 'settori'}, inizio ${String(Math.floor(d.refMinute / 60)).padStart(2, '0')}:${String(d.refMinute % 60).padStart(2, '0')} ora di riferimento`;
   const limitMin = stat === 'ext' ? L.ext : L.used;

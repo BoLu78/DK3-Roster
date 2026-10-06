@@ -83,6 +83,18 @@ export function extFdpMax(refMinute, sectors) {
   return row(EXT, refMinute)?.[sectorIndex(sectors)] ?? null;
 }
 
+// WOCL (02:00-05:59 nell'ora a cui l'equipaggio è acclimatato): minuti dell'FDP che la toccano
+export function woclEncroachMin(startMinuteOfDay, fdpMin) {
+  let n = 0;
+  for (let m = 0; m < fdpMin; m++) {
+    const x = (startMinuteOfDay + m) % 1440;
+    if (x >= 120 && x <= 359) n++;
+  }
+  return n;
+}
+// Settori massimi per un FDP esteso (OMA 7.1.7.2): 5 senza WOCL, 4 se la tocca fino a 2 h, 2 oltre
+export const extSectorCap = (woclMin) => (woclMin === 0 ? 5 : woclMin <= 120 ? 4 : 2);
+
 // Riposo in volo (equipaggio aumentato), max 3 settori. Classe 2 sul B737, classe 1 sul B787. OMA 7.1.7.3
 export function inflightRestMax(crew, sectors, restClass, longSector) {
   if (crew < 3 || sectors > 3) return null;
@@ -161,7 +173,15 @@ function analyzeDuty(duty, trip, ctx, crew, extFlag = false) {
 
   // ---- limiti
   const basic = state === 'X' ? unknownFdpMax(sectors) : basicFdpMax(refMin, sectors);
-  const ext = state === 'X' ? null : extFdpMax(refMin, sectors);
+  const wocl = woclEncroachMin(refMin, fdpMin);
+  const cap = extSectorCap(wocl);
+  let ext = state === 'X' ? null : extFdpMax(refMin, sectors);
+  let extWhy = ext == null ? (state === 'X' ? 'acclimatazione sconosciuta' : 'orario di inizio o numero di settori non ammessi dalla tabella') : null;
+  if (ext != null && sectors > cap) {
+    ext = null;
+    extWhy = `con ${wocl ? `la WOCL toccata per ${fmtHM(wocl)}` : 'la WOCL non toccata'} l’estensione ammette al massimo ${cap} settori`;
+  }
+  out.wocl = wocl;
   const longSector = flights.some((l) => (l.arrMs - l.depMs) / MIN > 540);
   const restClass = flights.every((l) => /787/.test(l.leg.ac ?? '')) ? 1 : 2;
   const inflight = inflightRestMax(crew, sectors, restClass, longSector);
@@ -169,15 +189,16 @@ function analyzeDuty(duty, trip, ctx, crew, extFlag = false) {
 
   // E_FDP nel roster = servizio pianificato con estensione: vale il massimo con estensione (OMA 7.1.7.2)
   const extPlanned = extFlag && ext != null;
-  if (extFlag && ext == null) out.notes.push('E_FDP nel roster, ma la tabella dell’estensione non prevede questo orario o questo numero di settori: uso il massimo base');
-  const used = extPlanned ? (inflight ? Math.max(ext, inflight) : ext) : inflight ? Math.max(basic ?? 0, inflight) : basic;
-  // con l'estensione già pianificata non mostro la discrezione del comandante: non è prevista sopra il massimo esteso
-  const discretion = used != null && !extPlanned ? used + (inflight ? 180 : 120) : null;
+  if (extFlag && ext == null) out.notes.push(`E_FDP nel roster, ma l’estensione qui non è ammessa (${extWhy}): uso il massimo base`);
+  // con E_FDP il riposo in volo non si può usare (OMA 7.1.7.2/7.1.7.3): l'equipaggio è quello standard
+  const used = extPlanned ? ext : inflight ? Math.max(basic ?? 0, inflight) : basic;
+  // la discrezione del comandante si calcola sempre sul massimo base (OMA 7.2.1): +2 h
+  const discretion = used != null ? (extPlanned ? basic + 120 : used + (inflight ? 180 : 120)) : null;
   out.limits.discretion = discretion;
   out.limits.used = used;
   if (extPlanned) {
     out.extPlanned = true;
-    out.notes.push(`Estensione pianificata (E_FDP): massimo base ${fmtHM(basic)} + 1 h = ${fmtHM(ext)}${fdpMin <= basic ? ' (l’FDP è comunque entro il massimo base)' : ''}`);
+    out.notes.push(`Estensione pianificata (E_FDP): massimo base ${fmtHM(basic)} + 1 h = ${fmtHM(ext)}${fdpMin <= basic ? ' (l’FDP è comunque entro il massimo base)' : ''}. Niente riposo in volo. Discrezione calcolata sul base (OMA 7.2.1)`);
   }
   if (crew >= 3 && sectors > 3) out.notes.push('Riposo in volo non applicabile: massimo 3 settori');
 
@@ -228,6 +249,32 @@ function restBetween(prev, next, ctx) {
   }
   const status = restMin < need || !hasNight ? 'over' : restMin - need < 60 ? 'warn' : 'ok';
   return { fromMs: from, toMs: to, restMin, needMin: need, status, why, atBase, hasNight, dates: [isoDate(to)] };
+}
+
+// Dopo e prima di un FDP esteso (OMA 7.1.7.2): riposo +2 h prima E +2 h dopo, oppure +4 h dopo.
+// Tra due FDP estesi i supplementi si sommano. Per ogni servizio esteso sceglie l'opzione che dà meno carenza.
+function applyExtensionRest(rests, duties) {
+  const ext = new Set(duties.filter((d) => d.extPlanned).map((d) => d.key));
+  if (!ext.size) return;
+  const touched = rests.filter((r) => ext.has(r.prevKey) || ext.has(r.nextKey));
+  const keys = [...ext].filter((k) => touched.some((r) => r.prevKey === k || r.nextKey === k));
+  if (!keys.length) return;
+  const extra = (r, opt) => (ext.has(r.prevKey) ? (opt[r.prevKey] === 'B' ? 240 : 120) : 0) + (ext.has(r.nextKey) && opt[r.nextKey] !== 'B' ? 120 : 0);
+  let best = null;
+  const n = Math.min(keys.length, 12);
+  for (let mask = 0; mask < 1 << n; mask++) {
+    const opt = Object.fromEntries(keys.map((k, i) => [k, i < n && (mask >> i) & 1 ? 'B' : 'A']));
+    const deficit = touched.reduce((a, r) => a + Math.max(0, r.needMin + extra(r, opt) - r.restMin), 0);
+    const total = touched.reduce((a, r) => a + extra(r, opt), 0);
+    if (!best || deficit < best.deficit || (deficit === best.deficit && total < best.total)) best = { opt, deficit, total };
+  }
+  for (const r of touched) {
+    const more = extra(r, best.opt);
+    r.needMin += more;
+    r.extraMin = more;
+    r.why.push(`FDP esteso: riposo +${more / 60} h (OMA 7.1.7.2: +2 h prima e dopo, oppure +4 h dopo)`);
+    r.status = r.restMin < r.needMin || !r.hasNight ? 'over' : r.restMin - r.needMin < 60 ? 'warn' : 'ok';
+  }
 }
 
 // "Notte locale" = 8 ore comprese tra le 22:00 e le 08:00 (ora di base): per contarla basta che il
@@ -292,7 +339,11 @@ export function analyze(days, options) {
   const tripOf = new Map();
   for (const tr of trips) for (const d of tr.duties) tripOf.set(d, tr);
   const extDates = new Set(sorted.filter((d) => d.flags?.includes('E_FDP')).map((d) => d.date));
-  const duties = buildDuties(sorted).map((d) => analyzeDuty(d, tripOf.get(d), ctx, crewByDuty[dutyKey(d)] ?? 2, d.dates.some((x) => extDates.has(x))));
+  const duties = buildDuties(sorted).map((d) => {
+    const extFlag = d.dates.some((x) => extDates.has(x));
+    return analyzeDuty(d, tripOf.get(d), ctx, extFlag ? 2 : crewByDuty[dutyKey(d)] ?? 2, extFlag);
+  });
+  for (const d of duties) if (extDates.size && d.dates.some((x) => extDates.has(x))) d.crewLocked = true;
   const issues = [];
   const add = (severity, date, text, extra = {}) => issues.push({ severity, date, text, ...extra });
 
@@ -327,10 +378,22 @@ export function analyze(days, options) {
     const r = restBetween(prev, next, ctx);
     if (!r) continue;
     if (prev.standby) r.why.unshift('dopo stand-by');
+    r.prevKey = prev.standby ? null : prev.key;
+    r.nextKey = next.key;
     rests.push(r);
+  }
+  applyExtensionRest(rests, duties);
+  for (const r of rests) {
     if (r.status === 'over') add('bad', isoDate(r.toMs), `Riposo ${fmtHM(r.restMin)} sotto il minimo ${fmtHM(r.needMin)} (${r.why.join('; ')})${r.hasNight ? '' : ' — manca la notte locale'}`);
     else if (r.status === 'warn') add('warn', isoDate(r.toMs), `Riposo ${fmtHM(r.restMin)} appena sopra il minimo ${fmtHM(r.needMin)}`);
   }
+
+  // estensioni pianificate: non più di 2 in 7 giorni consecutivi (OMA 7.1.7.2)
+  const extDuties = duties.filter((d) => d.extPlanned).sort((a, b) => a.startMs - b.startMs);
+  extDuties.forEach((d, i) => {
+    const inWeek = extDuties.filter((x, j) => j <= i && d.startMs - x.startMs < 7 * 86400000);
+    if (inWeek.length > 2) add('bad', isoDate(d.startMs), `${inWeek.length} estensioni FDP pianificate in 7 giorni: massimo 2`);
+  });
 
   const busy = busyIntervals(sorted, duties, ctx);
 
