@@ -8,6 +8,7 @@ import { deleteImport, clearImports, replaceImports, putImport, allImports } fro
 import { VERSION } from './version.js';
 import { refreshWeather, clearWeather } from './weather-ui.js';
 import { markAllSeen } from './seen.js';
+import { checkForUpdate, forceReload } from './update.js';
 
 const sheet = () => document.getElementById('sheet');
 
@@ -183,6 +184,26 @@ export function renderMore(view) {
 
   parts.push(h('div', { class: 'card' }, h('h2', {}, 'Informazioni'),
     h('div', { class: 'cmp' }, h('span', {}, 'Versione'), h('b', {}, VERSION)),
+    h('button', { class: 'btn secondary', style: 'margin-top:10px', onclick: async () => {
+      actions.toast('Cerco aggiornamenti…');
+      try {
+        const r = await checkForUpdate();
+        if (r === 'current') actions.toast(`L’app è già aggiornata (versione ${VERSION})`);
+        else if (r === 'dev') actions.toast('In prova locale non ci sono aggiornamenti');
+        else if (r === 'unsupported') alert('Questo dispositivo non supporta l’aggiornamento automatico. Chiudi e riapri l’app due volte.');
+        else actions.toast('Aggiornamento installato…');
+      } catch (e) {
+        alert(`Non riesco a controllare gli aggiornamenti: ${e.message ?? e}`);
+      }
+    } }, 'Cerca aggiornamenti'),
+    h('button', { class: 'btn secondary', onclick: async () => {
+      if (!confirm('Riscaricare l’app da zero? I tuoi turni e le impostazioni restano. Serve internet.')) return;
+      try {
+        await forceReload();
+      } catch (e) {
+        alert(e.message ?? String(e));
+      }
+    } }, 'Forza il riscaricamento dell’app'),
     state.data.pilot ? h('div', { class: 'cmp' }, h('span', {}, 'Pilota'), h('b', {}, `${state.data.pilot.code} · ${titleCase(state.data.pilot.name)}`)) : null,
     imports.length ? h('button', { class: 'btn danger', style: 'margin-top:10px', onclick: async () => { if (confirm('Cancellare TUTTI i turni salvati su questo dispositivo?')) { await clearImports(); await actions.refresh(); actions.toast('Dati cancellati'); } } }, 'Cancella tutti i dati') : null));
   view.replaceChildren(...parts);

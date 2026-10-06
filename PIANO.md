@@ -85,6 +85,12 @@ si può ritrovare nella cronologia (commit 8f28f47, 6c2448e, b401827).
 - Pallini: tasto "Togli i pallini" nel banner, "Visto" sul singolo giorno, scheda "Modifiche da vedere" in Altro;
   il segno "visto" vale per tutti gli import, non solo l'ultimo.
 
+## Fase 11 — Aggiornamento dell'app dal pulsante ✅ (6 ott 2026)
+
+- Altro → Informazioni: **Cerca aggiornamenti** (controlla `sw.js` sul sito, installa e ricarica da solo)
+  e **Forza il riscaricamento dell'app** (toglie service worker e copia salvata, i dati restano).
+- Provato su una copia locale con service worker acceso: versione nuova trovata, installata e ricaricata.
+
 ## Stato attuale (2 ott 2026)
 
 Tutte le funzioni sono scritte e provate nel browser del Mac (formato iPhone, anche offline).
