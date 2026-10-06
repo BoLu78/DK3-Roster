@@ -115,7 +115,9 @@ test('E_FDP: servizio pianificato con estensione, vale il massimo esteso', () =>
   assert.equal(d.status, 'ok');
   assert.equal(d.gapMin, m(1, 30));
   assert.equal(d.limits.discretion, m(14, 30)); // la discrezione si calcola sul massimo base (12:30) + 2 h, OMA 7.2.1
-  assert.ok(d.notes.some((n) => /EXTENSION pianificata/.test(n) && /OMA 7\.1\.7\.2/.test(n)));
+  assert.ok(d.notes.some((n) => /EXTENSION pianificata: max base 12:30 \+ 1 h = 13:30/.test(n)));
+  assert.ok(d.notes.some((n) => /Cpt Discretion: \+2 h sul max base/.test(n)));
+  assert.ok(!d.notes.some((n) => /OMA/.test(n)));
   assert.equal(d.fdp.lastBlockMin, m(4)); // CAI 13:00 -> MXP 17:00
   assert.equal(d.fdp.lastDepApt, 'CAI');
 

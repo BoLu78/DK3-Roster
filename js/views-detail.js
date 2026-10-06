@@ -51,7 +51,7 @@ function utcRange(startMs, min) {
   return `${fmtUtc(startMs)} – ${fmtUtc(startMs + min * 60000)} UTC`;
 }
 
-// Riquadro FDP come nell'app EASA: effettivo, massimo, discrezione del comandante (solo riferimento) e margini
+// Riquadro FDP: effettivo, massimo, Cpt Discretion e margini, con l'ultimo decollo possibile
 function fdpCard(d, day) {
   const f = d.fdp;
   const L = d.limits;
@@ -63,7 +63,7 @@ function fdpCard(d, day) {
     actions.ftlChanged(day.date);
   };
   const seg = d.crewLocked
-    ? h('div', { class: 'muted', style: 'font-size:13px;margin:6px 0' }, 'Piloti: 2 (standard) · riposo in volo non ammesso con Extension [OMA 7.1.7.2]')
+    ? h('div', { class: 'muted', style: 'font-size:13px;margin:6px 0' }, 'Piloti: 2 (standard) · riposo in volo non ammesso con Extension')
     : h('div', { class: 'crewseg' }, h('span', { class: 'muted' }, 'Piloti'), h('div', { class: 'seg' }, [2, 3, 4].map((n) => h('button', { 'aria-pressed': String(d.crew === n), onclick: () => setCrew(n) }, n === 2 ? '2 (standard)' : String(n)))));
   const kindTxt = { basic: 'tabella base', ext: 'con Extension', inflight: 'con riposo in volo' }[d.limitKind] ?? 'tabella base';
   const sub = `${f.sectors} ${f.sectors === 1 ? 'settore' : 'settori'}, inizio ${String(Math.floor(d.refMinute / 60)).padStart(2, '0')}:${String(d.refMinute % 60).padStart(2, '0')} ora di riferimento`;
@@ -74,27 +74,23 @@ function fdpCard(d, day) {
     return h('small', { class: 'lastto' }, `Ultimo decollo da ${f.lastDepApt}: `, h('b', {}, utcText(t)), t.loc ? ` (${locText(t)})` : '');
   };
   const limitRow = (label, limit, note) => h('div', { class: 'fdp-row' },
-    h('span', {}, label, h('small', {}, `Block-in entro ${fmtUtc(f.startMs + limit * 60000)}Z · ${note}`), lastTakeoff(limit)),
+    h('span', {}, label, h('small', {}, `Block-in entro ${fmtUtc(f.startMs + limit * 60000)}Z${note ? ` · ${note}` : ''}`), lastTakeoff(limit)),
     h('b', {}, `${fmtHM(limit)} h`));
   const rows = [
-    h('div', { class: 'fdp-row' }, h('span', {}, 'Effettivo', h('small', {}, `${utcRange(f.startMs, f.min)} · ultimo settore: decollo ${fmtUtc(f.lastDepMs)}Z`)), h('b', {}, `${fmtHM(f.min)} h`)),
+    h('div', { class: 'fdp-row' }, h('span', {}, 'Effettivo', h('small', {}, utcRange(f.startMs, f.min))), h('b', {}, `${fmtHM(f.min)} h`)),
     limitMin != null ? limitRow('Massimo', limitMin, kindTxt) : h('div', { class: 'fdp-row' }, h('span', {}, 'Massimo'), h('b', {}, 'n.d.')),
-    L.discretion != null ? limitRow('Discrezione del comandante', L.discretion, 'solo imprevisti [OMA 7.2.1]') : null,
+    L.discretion != null ? limitRow('Cpt Discretion', L.discretion, null) : null,
     d.gapMin != null ? h('div', { class: `fdp-row gap ${stat}` }, h('span', {}, 'Margine al massimo'), h('b', {}, `${d.gapMin < 0 ? '−' : ''}${fmtHM(Math.abs(d.gapMin))} h`)) : null,
-    L.discretion != null ? h('div', { class: `fdp-row gap ${f.min > L.discretion ? 'over' : 'ok'}` }, h('span', {}, 'Margine alla discrezione'), h('b', {}, `${f.min > L.discretion ? '−' : ''}${fmtHM(Math.abs(L.discretion - f.min))} h`)) : null,
+    L.discretion != null ? h('div', { class: `fdp-row gap ${f.min > L.discretion ? 'over' : 'ok'}` }, h('span', {}, 'Margine Cpt Discretion'), h('b', {}, `${f.min > L.discretion ? '−' : ''}${fmtHM(Math.abs(L.discretion - f.min))} h`)) : null,
   ];
   const tags = d.tags.map((t) => h('span', { class: 'chip warn' }, { presto: 'Inizio presto', tardi: 'Fine tardi', notte: 'Servizio notturno' }[t] ?? t));
   if (day.flags.includes('E_FDP')) tags.unshift(h('span', { class: 'chip ext' }, 'EXTENSION'));
-  const noteLi = (n) => {
-    const m = /^(.*?)\s*(\[[^\]]+\])$/.exec(n);
-    return h('li', {}, m ? m[1] : n, m ? h('span', { class: 'ref' }, ` ${m[2]}`) : null);
-  };
-  return h('div', { class: `card${d.extPlanned ? ' extcard' : ''}` }, h('h2', {}, `FDP cockpit${d.dates[0] !== day.date ? ` · servizio iniziato il ${d.dates[0].slice(8)}/${d.dates[0].slice(5, 7)}` : ''}`),
+  return h('div', { class: 'card' }, h('h2', {}, `FDP cockpit${d.dates[0] !== day.date ? ` · servizio iniziato il ${d.dates[0].slice(8)}/${d.dates[0].slice(5, 7)}` : ''}`),
     seg, rows,
     h('p', { class: 'muted', style: 'font-size:12.5px;margin-top:8px' }, `${sub} · ${STATE_TXT[d.acclimatisation.state]}.`),
-    d.notes.length ? h('ul', { class: 'ftl-notes' }, d.notes.map(noteLi)) : null,
+    d.notes.length ? h('ul', { class: 'ftl-notes' }, d.notes.map((n) => h('li', {}, n))) : null,
     tags.length ? h('div', { class: 'tagrow' }, tags) : null,
-    h('p', { class: 'muted', style: 'font-size:12px;margin-top:8px' }, 'Indicazione calcolata con le tabelle dell’OMA-A cap. 7: fa fede il manuale.'));
+  );
 }
 
 function restCard(r) {
