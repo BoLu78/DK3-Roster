@@ -102,13 +102,14 @@ function homeChip(day) {
 export function ftlChip(day) {
   const d = state.ftl?.byDate.get(day.date)?.duties.find((x) => x.fdp && x.dates[0] === day.date);
   if (!d || d.status == null) return null;
-  return h('span', { class: `ftl ftl-${d.status}` }, `FDP ${fmtHM(d.fdp.min)} / ${fmtHM(d.limits.used)}${d.limitKind === 'ext' ? ' Ext' : ''}`);
+  return h('span', { class: `ftl ftl-${d.status}` }, `FDP ${fmtHM(d.fdp.min)} / ${fmtHM(d.limits.used)}${d.limitKind === 'ext' ? ' EXT' : ''}`);
 }
 
 function dayRow(day, today) {
   const k = kindOf(day);
   const changed = state.pending.has(day.date);
-  const cls = ['day', k.cls, day.kind, day.date === today ? 'today' : '', changed ? 'changed' : ''].filter(Boolean).join(' ');
+  const isExt = day.flags.includes('E_FDP');
+  const cls = ['day', k.cls, day.kind, day.date === today ? 'today' : '', changed ? 'changed' : '', isExt ? 'ext' : ''].filter(Boolean).join(' ');
   const dt = h('div', { class: 'dt' }, h('div', { class: 'n' }, Number(day.date.slice(8))), h('div', { class: 'w' }, DOW_SHORT[dowOf(day.date)]));
   let main;
   if (['off', 'blank', 'rest'].includes(day.kind) && !day.seq?.length) {
@@ -119,7 +120,7 @@ function dayRow(day, today) {
     main = h('div', { class: 'main' },
       h('div', { class: 'l1' }, h('span', { class: 'route' }, s.title), day.ft && day.kind === 'flight' ? h('span', { class: 'ft' }, `FT ${day.ft.replace(/^0/, '')}`) : null),
       s.timeline ? h('div', { class: 'l2' }, s.timeline.utc, s.timeline.loc ? h('span', { class: 'loc' }, `  ·  ${s.timeline.loc}`) : null) : null,
-      h('div', { class: 'l3' }, s.extra.filter(Boolean).map((x) => h('span', {}, x)), homeChip(day), ftlChip(day), ...wxChips(day), day.hotel ? h('span', {}, `🛏 ${day.hotel.code} ${day.hotel.airport ?? ''}`) : null, day.flags.includes('E_FDP') ? h('span', {}, 'E_FDP') : null));
+      h('div', { class: 'l3' }, s.extra.filter(Boolean).map((x) => h('span', {}, x)), homeChip(day), ftlChip(day), ...wxChips(day), day.hotel ? h('span', {}, `🛏 ${day.hotel.code} ${day.hotel.airport ?? ''}`) : null, isExt ? h('span', { class: 'ext-badge' }, 'EXTENSION') : null));
   }
   return h('button', { class: cls, onclick: () => actions.openDay(day.date), 'aria-label': day.date }, dt, h('div', { class: 'bar' }), main);
 }

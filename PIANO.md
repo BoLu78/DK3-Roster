@@ -91,6 +91,12 @@ si può ritrovare nella cronologia (commit 8f28f47, 6c2448e, b401827).
   e **Forza il riscaricamento dell'app** (toglie service worker e copia salvata, i dati restano).
 - Provato su una copia locale con service worker acceso: versione nuova trovata, installata e ricaricata.
 
+## Fase 12 — Extension in evidenza e ultimo decollo ✅ (6 ott 2026, da provare sull'iPhone)
+
+- `E_FDP` nel roster si chiama **EXTENSION** nell'app; giorno in magenta (lista, calendario, dettaglio).
+- Scheda FDP: per Massimo e Discrezione si vede il block-in massimo e l'**ultimo decollo** dell'ultimo settore (UTC e ora locale).
+- Note schematiche con riferimento al manuale (OMA 7.1.7.2, 7.1.7.3, 7.2.1).
+
 ## Stato attuale (2 ott 2026)
 
 Tutte le funzioni sono scritte e provate nel browser del Mac (formato iPhone, anche offline).

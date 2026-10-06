@@ -63,24 +63,36 @@ function fdpCard(d, day) {
     actions.ftlChanged(day.date);
   };
   const seg = d.crewLocked
-    ? h('div', { class: 'muted', style: 'font-size:13px;margin:6px 0' }, 'Equipaggio standard: con l’estensione pianificata (E_FDP) non si può usare il riposo in volo (OMA 7.1.7.2).')
+    ? h('div', { class: 'muted', style: 'font-size:13px;margin:6px 0' }, 'Piloti: 2 (standard) · riposo in volo non ammesso con Extension [OMA 7.1.7.2]')
     : h('div', { class: 'crewseg' }, h('span', { class: 'muted' }, 'Piloti'), h('div', { class: 'seg' }, [2, 3, 4].map((n) => h('button', { 'aria-pressed': String(d.crew === n), onclick: () => setCrew(n) }, n === 2 ? '2 (standard)' : String(n)))));
-  const kindTxt = { basic: 'tabella base', ext: 'con estensione (Ext)', inflight: 'con riposo in volo' }[d.limitKind] ?? 'tabella base';
+  const kindTxt = { basic: 'tabella base', ext: 'con Extension', inflight: 'con riposo in volo' }[d.limitKind] ?? 'tabella base';
   const sub = `${f.sectors} ${f.sectors === 1 ? 'settore' : 'settori'}, inizio ${String(Math.floor(d.refMinute / 60)).padStart(2, '0')}:${String(d.refMinute % 60).padStart(2, '0')} ora di riferimento`;
   const limitMin = stat === 'ext' ? L.ext : L.used;
+  // ultimo decollo dell'ultimo settore che rispetta il limite (con la durata di blocco prevista di quel settore)
+  const lastTakeoff = (limit) => {
+    const t = times(f.startMs + (limit - f.lastBlockMin) * 60000, f.lastDepApt, day.date);
+    return h('small', { class: 'lastto' }, `Ultimo decollo da ${f.lastDepApt}: `, h('b', {}, utcText(t)), t.loc ? ` (${locText(t)})` : '');
+  };
+  const limitRow = (label, limit, note) => h('div', { class: 'fdp-row' },
+    h('span', {}, label, h('small', {}, `Block-in entro ${fmtUtc(f.startMs + limit * 60000)}Z · ${note}`), lastTakeoff(limit)),
+    h('b', {}, `${fmtHM(limit)} h`));
   const rows = [
-    h('div', { class: 'fdp-row' }, h('span', {}, 'Effettivo', h('small', {}, utcRange(f.startMs, f.min))), h('b', {}, `${fmtHM(f.min)} h`)),
-    limitMin != null ? h('div', { class: 'fdp-row' }, h('span', {}, 'Massimo', h('small', {}, `${utcRange(f.startMs, limitMin)} · ${kindTxt}`)), h('b', {}, `${fmtHM(limitMin)} h`)) : h('div', { class: 'fdp-row' }, h('span', {}, 'Massimo'), h('b', {}, 'n.d.')),
-    L.discretion != null ? h('div', { class: 'fdp-row' }, h('span', {}, 'Discrezione del comandante', h('small', {}, `${utcRange(f.startMs, L.discretion)} · solo riferimento`)), h('b', {}, `${fmtHM(L.discretion)} h`)) : null,
+    h('div', { class: 'fdp-row' }, h('span', {}, 'Effettivo', h('small', {}, `${utcRange(f.startMs, f.min)} · ultimo settore: decollo ${fmtUtc(f.lastDepMs)}Z`)), h('b', {}, `${fmtHM(f.min)} h`)),
+    limitMin != null ? limitRow('Massimo', limitMin, kindTxt) : h('div', { class: 'fdp-row' }, h('span', {}, 'Massimo'), h('b', {}, 'n.d.')),
+    L.discretion != null ? limitRow('Discrezione del comandante', L.discretion, 'solo imprevisti [OMA 7.2.1]') : null,
     d.gapMin != null ? h('div', { class: `fdp-row gap ${stat}` }, h('span', {}, 'Margine al massimo'), h('b', {}, `${d.gapMin < 0 ? '−' : ''}${fmtHM(Math.abs(d.gapMin))} h`)) : null,
     L.discretion != null ? h('div', { class: `fdp-row gap ${f.min > L.discretion ? 'over' : 'ok'}` }, h('span', {}, 'Margine alla discrezione'), h('b', {}, `${f.min > L.discretion ? '−' : ''}${fmtHM(Math.abs(L.discretion - f.min))} h`)) : null,
   ];
   const tags = d.tags.map((t) => h('span', { class: 'chip warn' }, { presto: 'Inizio presto', tardi: 'Fine tardi', notte: 'Servizio notturno' }[t] ?? t));
-  if (day.flags.includes('E_FDP')) tags.push(h('span', { class: 'chip' }, 'E_FDP (roster)'));
-  return h('div', { class: 'card' }, h('h2', {}, `FDP cockpit${d.dates[0] !== day.date ? ` · servizio iniziato il ${d.dates[0].slice(8)}/${d.dates[0].slice(5, 7)}` : ''}`),
+  if (day.flags.includes('E_FDP')) tags.unshift(h('span', { class: 'chip ext' }, 'EXTENSION'));
+  const noteLi = (n) => {
+    const m = /^(.*?)\s*(\[[^\]]+\])$/.exec(n);
+    return h('li', {}, m ? m[1] : n, m ? h('span', { class: 'ref' }, ` ${m[2]}`) : null);
+  };
+  return h('div', { class: `card${d.extPlanned ? ' extcard' : ''}` }, h('h2', {}, `FDP cockpit${d.dates[0] !== day.date ? ` · servizio iniziato il ${d.dates[0].slice(8)}/${d.dates[0].slice(5, 7)}` : ''}`),
     seg, rows,
-    h('p', { class: 'muted', style: 'font-size:12.5px;margin-top:8px' }, `${sub} · ${STATE_TXT[d.acclimatisation.state]}${d.crew >= 3 && f.sectors > 3 ? ' · riposo in volo non applicabile (max 3 settori)' : ''}.`),
-    d.notes.length ? h('div', { class: 'muted', style: 'font-size:13px' }, d.notes.join(' · ')) : null,
+    h('p', { class: 'muted', style: 'font-size:12.5px;margin-top:8px' }, `${sub} · ${STATE_TXT[d.acclimatisation.state]}.`),
+    d.notes.length ? h('ul', { class: 'ftl-notes' }, d.notes.map(noteLi)) : null,
     tags.length ? h('div', { class: 'tagrow' }, tags) : null,
     h('p', { class: 'muted', style: 'font-size:12px;margin-top:8px' }, 'Indicazione calcolata con le tabelle dell’OMA-A cap. 7: fa fede il manuale.'));
 }
@@ -98,9 +110,9 @@ function body(day) {
   const tl = buildDayTimeline(day);
   const ref = day.date;
   const parts = [];
-  const hero = h('div', { class: `hero ${k.cls}` }, h('span', { class: 'pill' }, k.label),
+  const isExt = day.flags.includes('E_FDP');
+  const hero = h('div', { class: `hero ${k.cls}${isExt ? ' ext' : ''}` }, h('span', { class: 'pill' }, k.label), isExt ? h('span', { class: 'pill extpill' }, 'EXTENSION') : null,
     h('div', { class: 'big' }, day.kind === 'flight' || day.kind === 'transport' ? arrowRoute(day) : day.kind === 'sim' ? 'Simulatore' : day.kind === 'off' ? 'Riposo' : day.kind === 'vacation' ? 'Ferie' : day.kind === 'rest' ? 'Giorno X' : day.kind === 'standby' ? k.label : 'Nessun servizio'),
-    day.flags.includes('E_FDP') ? h('div', { class: 'muted' }, 'E_FDP (FDP esteso)') : null,
     day.kind === 'standby' && tl.window ? h('div', {}, timeEl(times(tl.window.startMs, day.airport, ref)), ' → ', timeEl(times(tl.window.endMs, day.airport, ref))) : null);
   parts.push(hero);
 

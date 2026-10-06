@@ -47,7 +47,7 @@ function weekRow(weekStart, key, trips, today) {
   dates.forEach((date, i) => {
     const day = state.data.days.get(date);
     const out = !date.startsWith(key);
-    wk.append(h('button', { class: ['dn', out ? 'out' : '', date === today ? 'today' : '', date === selected ? 'sel' : '', state.pending.has(date) ? 'changed' : ''].filter(Boolean).join(' '), style: `grid-column:${i + 1};grid-row:1`, onclick: () => { selected = date; renderCalendar(document.getElementById('view')); }, 'aria-label': date },
+    wk.append(h('button', { class: ['dn', out ? 'out' : '', date === today ? 'today' : '', date === selected ? 'sel' : '', state.pending.has(date) ? 'changed' : '', day?.flags?.includes('E_FDP') ? 'ext' : ''].filter(Boolean).join(' '), style: `grid-column:${i + 1};grid-row:1`, onclick: () => { selected = date; renderCalendar(document.getElementById('view')); }, 'aria-label': date },
       Number(date.slice(8)), day?.hotel ? h('span', { class: 'hot' }, '🛏') : null));
     wk.append(h('div', { class: `ln${out ? ' out' : ''}`, style: `grid-column:${i + 1};grid-row:2` }));
   });

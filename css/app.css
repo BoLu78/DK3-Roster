@@ -11,6 +11,7 @@
   --k-blank: #c7c7cc; --k-blank-bg: transparent;
   --safe-b: env(safe-area-inset-bottom, 0px); --safe-t: env(safe-area-inset-top, 0px);
   --tab-h: 58px;
+  --ext: #d6177f;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -24,6 +25,7 @@
     --k-off: #8e8e93; --k-off-bg: rgba(142,142,147,.14);
     --k-vac: #3cc8d6; --k-vac-bg: rgba(60,200,214,.15);
     --k-blank: #48484a;
+    --ext: #ff4fb0;
   }
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -261,3 +263,15 @@ input[type=number] { width: 72px; text-align: right; }
 .wx.changed { color: var(--warn); }
 .wxline { margin-top: 4px; min-height: 0; }
 .leg .pt.r .wxline { text-align: right; }
+
+/* Extension FDP (E_FDP nel roster): magenta pieno, diverso da tutti i colori dei servizi */
+.day.ext { background: color-mix(in srgb, var(--ext) 11%, var(--card)); box-shadow: inset 0 0 0 2px var(--ext); }
+.day.ext .bar { background: var(--ext); width: 8px; }
+.ext-badge { background: var(--ext); color: #fff; font-weight: 800; font-size: 11.5px; letter-spacing: .06em; padding: 1px 8px; border-radius: 999px; }
+.hero.ext { --kc: var(--ext); --kbg: color-mix(in srgb, var(--ext) 13%, transparent); border: 2px solid var(--ext); }
+.pill.extpill { background: var(--ext); color: #fff; margin-left: 6px; letter-spacing: .05em; }
+.chip.ext { background: var(--ext); color: #fff; }
+.card.extcard { border: 1.5px solid color-mix(in srgb, var(--ext) 55%, transparent); }
+.wk .dn.ext { box-shadow: inset 0 -4px 0 var(--ext); }
+.fdp-row small.lastto { color: var(--text); font-size: 13px; margin-top: 2px; } .fdp-row small.lastto b { font-size: 14px; font-weight: 800; }
+.ftl-notes { margin: 8px 0 0; padding-left: 18px; font-size: 13px; } .ftl-notes li { margin: 4px 0; } .ftl-notes .ref { color: var(--muted); white-space: nowrap; }

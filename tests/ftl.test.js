@@ -115,7 +115,9 @@ test('E_FDP: servizio pianificato con estensione, vale il massimo esteso', () =>
   assert.equal(d.status, 'ok');
   assert.equal(d.gapMin, m(1, 30));
   assert.equal(d.limits.discretion, m(14, 30)); // la discrezione si calcola sul massimo base (12:30) + 2 h, OMA 7.2.1
-  assert.ok(d.notes.some((n) => /E_FDP/.test(n)));
+  assert.ok(d.notes.some((n) => /EXTENSION pianificata/.test(n) && /OMA 7\.1\.7\.2/.test(n)));
+  assert.equal(d.fdp.lastBlockMin, m(4)); // CAI 13:00 -> MXP 17:00
+  assert.equal(d.fdp.lastDepApt, 'CAI');
 
   // stesso servizio senza E_FDP: limite base, "al limite"
   d = analyze([mk('1700', [])], { base: 'MXP', airports: AP }).duties[0];
@@ -128,11 +130,11 @@ test('E_FDP: servizio pianificato con estensione, vale il massimo esteso', () =>
   let r = analyze([mk('1800', ['E_FDP'])], { base: 'MXP', airports: AP });
   assert.equal(r.duties[0].status, 'warn'); // 13:00 su 13:30: a 30 min dal limite
   assert.equal(r.duties[0].limitKind, 'ext');
-  assert.ok(r.issues.some((i) => i.severity === 'info' && /estensione pianificata/.test(i.text)));
+  assert.ok(r.issues.some((i) => i.severity === 'info' && /EXTENSION pianificata/.test(i.text)));
   assert.ok(!r.issues.some((i) => i.severity === 'bad'));
   r = analyze([mk('1800', [])], { base: 'MXP', airports: AP });
   assert.equal(r.duties[0].status, 'ext');
-  assert.ok(r.issues.some((i) => /manca E_FDP|non c’è E_FDP/.test(i.text)));
+  assert.ok(r.issues.some((i) => /richiede Extension/.test(i.text)));
 
   // oltre il massimo esteso (14:00 > 13:30): fuori limite anche con E_FDP
   r = analyze([mk('1930', ['E_FDP'])], { base: 'MXP', airports: AP });
@@ -147,7 +149,7 @@ test('E_FDP dove la tabella dell\'estensione non c\'è: resta il massimo base e 
   const d = analyze([day('2026-10-08', legs, '1500', '0630', { flags: ['E_FDP'] })], { base: 'MXP', airports: AP }).duties[0];
   assert.equal(d.limits.ext, null);
   assert.notEqual(d.extPlanned, true);
-  assert.ok(d.notes.some((n) => /E_FDP nel roster/.test(n)));
+  assert.ok(d.notes.some((n) => /EXTENSION nel roster ma non ammessa/.test(n)));
 });
 
 test('E_FDP: equipaggio sempre standard, anche se avevo scelto più piloti', () => {
@@ -197,7 +199,7 @@ test('E_FDP: riposi più lunghi prima e dopo (+2 h e +2 h, oppure +4 h dopo)', (
   assert.equal(rest.restMin, m(15));
   assert.equal(rest.needMin, m(14));
   assert.equal(rest.status, 'ok');
-  assert.ok(rest.why.some((w) => /FDP esteso/.test(w)));
+  assert.ok(rest.why.some((w) => /Extension/.test(w)));
   // riposo di 13 h: sotto 12 + 2 h, ma anche +4 h dopo sarebbe peggio: carenza
   r = analyze([ext('2026-10-08'), normal('2026-10-09', '0230')], { base: 'MXP', airports: AP });
   rest = r.rests[0];
@@ -225,7 +227,7 @@ test('E_FDP: massimo 2 estensioni in 7 giorni', () => {
   let r = analyze([mk('2026-10-08'), mk('2026-10-10')], { base: 'MXP', airports: AP });
   assert.ok(!r.issues.some((i) => /in 7 giorni: massimo 2/.test(i.text)));
   r = analyze([mk('2026-10-08'), mk('2026-10-10'), mk('2026-10-12')], { base: 'MXP', airports: AP });
-  assert.ok(r.issues.some((i) => i.severity === 'bad' && /3 estensioni FDP pianificate in 7 giorni/.test(i.text)));
+  assert.ok(r.issues.some((i) => i.severity === 'bad' && /3 Extension FDP in 7 giorni/.test(i.text)));
   // la quarta è fuori dai 7 giorni dalla prima
   r = analyze([mk('2026-10-08'), mk('2026-10-10'), mk('2026-10-16')], { base: 'MXP', airports: AP });
   assert.ok(!r.issues.some((i) => /in 7 giorni: massimo 2/.test(i.text)));
