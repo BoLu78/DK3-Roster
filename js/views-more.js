@@ -7,7 +7,6 @@ import { buildFamilyIcs } from '../src/family.js';
 import { deleteImport, clearImports, replaceImports, putImport, allImports } from './db.js';
 import { VERSION } from './version.js';
 import { refreshWeather, clearWeather } from './weather-ui.js';
-import { bstate, importRules, clearRules, testConnection, autoRefresh, clearBriefing } from './briefing-store.js';
 
 const sheet = () => document.getElementById('sheet');
 
@@ -150,71 +149,6 @@ export function renderMore(view) {
     state.weather?.error ? h('div', { class: 'bad', style: 'font-size:13px' }, state.weather.error) : null,
     s.weatherOn ? h('button', { class: 'btn secondary', style: 'margin-top:8px', onclick: async () => { actions.toast('Aggiorno il meteo…'); await refreshWeather({ force: true }); actions.refresh(); } }, 'Aggiorna ora') : null,
     h('p', { class: 'muted', style: 'font-size:13px;margin-top:8px' }, 'Spento di default. Se acceso, l’app chiede a Open-Meteo (gratuito, senza account) la previsione per i luoghi dei tuoi servizi dei prossimi 15 giorni. Nella richiesta ci sono solo le coordinate degli aeroporti e le date: nessun dato del roster. Non sostituisce METAR e TAF.')));
-
-  // briefing (opzionale): METAR/TAF/SIGMET da aviationweather.gov, rotta da Open-Meteo, regole importate
-  const bf = h('input', { type: 'checkbox', checked: s.briefingOn });
-  bf.addEventListener('change', async () => {
-    s.briefingOn = bf.checked;
-    saveSettings();
-    if (bf.checked) {
-      actions.toast('Scarico il briefing…');
-      await autoRefresh({ force: true });
-    }
-    actions.refresh();
-  });
-  const rulesFile = h('input', { type: 'file', accept: 'application/json,.json', hidden: true });
-  rulesFile.addEventListener('change', async () => {
-    const f = rulesFile.files?.[0];
-    rulesFile.value = '';
-    if (!f) return;
-    try {
-      importRules(await f.text());
-      actions.toast('Regole importate');
-    } catch (e) {
-      alert(e.message ?? String(e));
-    }
-    actions.refresh();
-  });
-  const relay = h('input', { type: 'checkbox', checked: !!s.briefingRelay });
-  relay.addEventListener('change', () => {
-    s.briefingRelay = relay.checked;
-    saveSettings();
-  });
-  const ruleText = h('textarea', { rows: 5, placeholder: 'Incolla qui il testo che inizia con { "format": "dk3-rules"…', spellcheck: 'false', autocapitalize: 'off' });
-  const bAt = bstate.at;
-  parts.push(h('div', { class: 'card' }, h('h2', {}, 'Briefing voli'),
-    h('label', { class: 'field' }, h('span', {}, 'Prepara il briefing (usa internet)'), bf),
-    s.briefingOn ? h('div', { class: 'muted', style: 'font-size:13px' }, bAt ? `Ultimo aggiornamento: ${new Date(bAt).toLocaleString('it-IT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : 'Ancora nessun aggiornamento.') : null,
-    h('div', { class: bstate.rules ? 'muted' : 'bad', style: 'font-size:13px;margin-top:4px' }, bstate.rules ? `Regole importate${bstate.rules.company ? `: ${bstate.rules.company}` : ''}${bstate.rules.fleet ? ` ${bstate.rules.fleet}` : ''}` : bstate.rulesError ?? 'Regole di compagnia non importate: gli alternati non vengono valutati.'),
-    h('button', { class: 'btn secondary', style: 'margin-top:8px', onclick: () => rulesFile.click() }, bstate.rules ? 'Sostituisci le regole (.json)' : 'Importa le regole (.json)'), rulesFile,
-    h('details', { class: 'bf-more' }, h('summary', {}, 'Oppure incolla il testo delle regole'),
-      ruleText, h('button', { class: 'btn secondary', style: 'margin-top:8px', onclick: () => {
-        try {
-          importRules(ruleText.value);
-          ruleText.value = '';
-          actions.toast('Regole importate');
-          actions.refresh();
-        } catch (e) {
-          alert(e instanceof SyntaxError ? 'Il testo incollato non è completo: copialo di nuovo dall’inizio alla fine.' : e.message ?? String(e));
-        }
-      } }, 'Importa dal testo')),
-    bstate.rules ? h('button', { class: 'btn secondary', onclick: () => { if (confirm('Togliere le regole di compagnia da questo telefono?')) { clearRules(); actions.refresh(); } } }, 'Togli le regole') : null,
-    h('button', { class: 'btn secondary', onclick: async () => {
-      actions.toast('Provo il collegamento…');
-      let r = await testConnection();
-      if (r.ok == null && !r.relayOn && confirm(`Il collegamento diretto non funziona:\n${r.lines.join('\n')}\n\nAviationweather.gov non permette alle app di leggere i suoi dati. Vuoi provare con un servizio intermedio pubblico (allorigins.win, codetabs.com)? Vede solo i codici degli aeroporti richiesti e il tuo indirizzo di rete, mai i tuoi turni.`)) {
-        s.briefingRelay = true;
-        saveSettings();
-        actions.toast('Riprovo con il servizio intermedio…');
-        r = await testConnection();
-      }
-      alert(`${r.ok ? 'Collegamento riuscito.' : 'Collegamento NON riuscito.'}\n\n${r.lines.join('\n')}${r.ok ? `\n\n${r.ok}` : '\n\nFai uno screenshot di questo messaggio e mandamelo.'}`);
-      actions.refresh();
-    } }, 'Prova il collegamento'),
-    h('label', { class: 'field' }, h('span', {}, 'Consenti servizio intermedio pubblico'), relay),
-    s.briefingOn ? h('button', { class: 'btn secondary', onclick: async () => { actions.toast('Aggiorno il briefing…'); await autoRefresh({ force: true }); actions.refresh(); } }, 'Aggiorna ora') : null,
-    h('button', { class: 'btn danger', onclick: () => { if (confirm('Cancellare i dati del briefing (meteo, NOTAM incollati)?')) { clearBriefing(); actions.refresh(); } } }, 'Cancella i dati del briefing'),
-    h('p', { class: 'muted', style: 'font-size:13px;margin-top:8px' }, 'Spento di default. Se acceso, per i voli a meno di 36 ore l’app chiede METAR, TAF e SIGMET ad aviationweather.gov (NOAA, gratuito, senza account) e le previsioni lungo la rotta a Open-Meteo. Nelle richieste ci sono solo codici ICAO, coordinate e date: nessun dato del roster. Se aviationweather.gov blocca il collegamento diretto, puoi consentire un servizio intermedio pubblico (vede solo i codici ICAO). I NOTAM non si scaricano: li incolli tu. Le regole di compagnia restano solo su questo telefono. Si aggiorna quando l’app è aperta.')));
 
   // soglie scadenze
   const warn = h('input', { type: 'number', min: 1, max: 365, value: s.warn, inputmode: 'numeric' });

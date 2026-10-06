@@ -9,9 +9,6 @@ import { buildDayTimeline, durationMin, fmtDuration, fmtUtc, utcOffsetHours } fr
 import { arrowRoute, tailLines } from './views-list.js';
 import { collectRoutes } from '../src/geo.js';
 import { createMap } from './map.js';
-import { showBriefing } from './views-briefing.js';
-import { badgeFor } from './briefing-store.js';
-import { fmtZ } from '../src/briefing.js';
 
 const sheet = () => document.getElementById('sheet');
 
@@ -93,18 +90,6 @@ function restCard(r) {
     h('div', { class: `fdp-row gap ${cls}` }, h('span', {}, 'Margine'), h('b', {}, `${r.restMin < r.needMin ? '−' : ''}${fmtHM(Math.abs(r.restMin - r.needMin))} h`)));
 }
 
-const BF_TXT = { high: 'Attenzione', med: 'Da valutare', low: 'Nota', ok: 'Nessun problema' };
-
-// Pulsante verso il Briefing (meteo, alternati, NOTAM): sotto il titolo, la lista sotto resta com'è
-function briefingTag(date) {
-  const b = badgeFor(date);
-  const sub = !state.settings.briefingOn ? 'Meteo, threat, alternati e NOTAM' : b?.fetchedAt ? `${BF_TXT[b.level] ?? ''} · dati delle ${fmtZ(b.fetchedAt)}` : 'Tocca per scaricare i dati';
-  return h('button', { class: 'bf-tag', onclick: () => showBriefing(date) },
-    h('span', { class: `bf-dot lv-${b?.level ?? 'none'}` }),
-    h('span', { class: 't' }, h('b', {}, 'Briefing'), h('small', { class: 'muted' }, sub)),
-    h('span', { class: 'chev' }, '›'));
-}
-
 function body(day) {
   const k = kindOf(day);
   const tl = buildDayTimeline(day);
@@ -115,7 +100,6 @@ function body(day) {
     day.flags.includes('E_FDP') ? h('div', { class: 'muted' }, 'E_FDP (FDP esteso)') : null,
     day.kind === 'standby' && tl.window ? h('div', {}, timeEl(times(tl.window.startMs, day.airport, ref)), ' → ', timeEl(times(tl.window.endMs, day.airport, ref))) : null);
   parts.push(hero);
-  if (day.kind === 'flight' && tl.legs.some((e) => e.leg.kind === 'flight')) parts.push(briefingTag(day.date));
 
   for (const t of tailLines(day.date)) parts.push(h('div', { class: 'card', style: 'padding:10px 14px' }, t));
   const pend = state.pending.get(day.date);
@@ -195,5 +179,4 @@ export function showDetail(date) {
   el.style.animation = 'none';
   requestAnimationFrame(() => (el.style.animation = ''));
   showDetail.current = date;
-  showBriefing.current = null;
 }
