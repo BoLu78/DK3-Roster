@@ -120,7 +120,7 @@ export function renderCalendar(view) {
     h('div', {}, h('b', {}, s.flightDays), h('small', {}, 'Giorni volo')),
     h('div', {}, h('b', {}, s.standbyDays + s.reserveDays), h('small', {}, 'Sby/Rsv'))));
   parts.push(h('div', { class: 'legend' },
-    [['k-flight', 'Rotazione'], ['k-transport', 'Trasferimento'], ['k-standby', 'Stand-by'], ['k-reserve', 'Reserve'], ['k-sim', 'Simulatore'], ['k-vac', 'Ferie'], ['k-off', 'Riposo']].map(([c, t]) => h('span', { class: c }, h('i'), t)),
+    [['k-flight', 'Rotazione'], ['k-transport', 'Trasferimento'], ['k-standby', 'Stand-by'], ['k-reserve', 'Reserve'], ['k-sim', 'Simulatore'], ['k-vac', 'Ferie'], ['k-off', 'OFF']].map(([c, t]) => h('span', { class: c }, h('i'), t)),
     h('span', {}, '🛏 hotel')));
   view.replaceChildren(...parts);
 }

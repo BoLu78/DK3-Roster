@@ -114,7 +114,7 @@ function dayRow(day, today) {
   let main;
   if (['off', 'blank', 'rest'].includes(day.kind) && !day.seq?.length) {
     const tail = tailLines(day.date);
-    main = h('div', { class: 'main', style: tail.length ? 'flex-direction:column;align-items:flex-start;justify-content:center' : null }, tail.length ? h('div', { class: 'muted' }, tail.map((t) => h('div', {}, t))) : null, h('span', {}, { off: 'Riposo', rest: 'Giorno X · nessun nuovo servizio', blank: tail.length ? '' : '—' }[day.kind]), day.hotel ? h('span', { class: 'muted', style: 'margin-left:10px' }, `🛏 ${day.hotel.code} ${day.hotel.airport ?? ''}`) : null);
+    main = h('div', { class: 'main', style: tail.length ? 'flex-direction:column;align-items:flex-start;justify-content:center' : null }, tail.length ? h('div', { class: 'muted' }, tail.map((t) => h('div', {}, t))) : null, h('span', {}, { off: 'OFF', rest: 'Giorno X · nessun nuovo servizio', blank: tail.length ? '' : '—' }[day.kind]), day.hotel ? h('span', { class: 'muted', style: 'margin-left:10px' }, `🛏 ${day.hotel.code} ${day.hotel.airport ?? ''}`) : null);
   } else {
     const s = daySummary(day);
     main = h('div', { class: 'main' },

@@ -114,7 +114,7 @@ function body(day) {
   const parts = [];
   const isExt = day.flags.includes('E_FDP');
   const hero = h('div', { class: `hero ${k.cls}${isExt ? ' ext' : ''}` }, h('span', { class: 'pill' }, k.label), isExt ? h('span', { class: 'pill extpill' }, 'EXTENSION') : null,
-    h('div', { class: 'big' }, day.kind === 'flight' || day.kind === 'transport' ? arrowRoute(day) : day.kind === 'sim' ? 'Simulatore' : day.kind === 'off' ? 'Riposo' : day.kind === 'vacation' ? 'Ferie' : day.kind === 'rest' ? 'Giorno X' : day.kind === 'standby' ? k.label : 'Nessun servizio'),
+    h('div', { class: 'big' }, day.kind === 'flight' || day.kind === 'transport' ? arrowRoute(day) : day.kind === 'sim' ? 'Simulatore' : day.kind === 'off' ? 'OFF' : day.kind === 'vacation' ? 'Ferie' : day.kind === 'rest' ? 'Giorno X' : day.kind === 'standby' ? k.label : 'Nessun servizio'),
     day.kind === 'standby' && tl.window ? h('div', {}, timeEl(times(tl.window.startMs, day.airport, ref)), ' → ', timeEl(times(tl.window.endMs, day.airport, ref))) : null);
   parts.push(hero);
 
@@ -130,7 +130,6 @@ function body(day) {
   }
   if (day.simFt && day.simFt !== '0:00') cells.push(h('div', {}, h('small', { class: 'muted' }, 'SIM FT'), h('b', {}, day.simFt)));
   if (cells.length) parts.push(h('div', { class: 'grid4' }, cells));
-  if (tl.events.length) parts.push(h('p', { class: 'muted', style: 'margin:10px 4px 0;font-size:13px' }, 'Orari UTC (Z) in evidenza, ora locale dell’aeroporto sotto.'));
   const first = day.seq?.[0];
   if (first && !['pickup', 'ci'].includes(first.t)) parts.push(h('p', { class: 'muted', style: 'margin:6px 4px 0;font-size:13px' }, '↤ Giorno X: contiene la parte finale del servizio iniziato il giorno prima.'));
 
@@ -175,7 +174,7 @@ function body(day) {
   const ftl = state.ftl?.byDate.get(day.date);
   for (const d of ftl?.duties ?? []) if (d.fdp) parts.push(fdpCard(d, day));
   for (const r of ftl?.rests ?? []) parts.push(restCard(r));
-  if (day.kind === 'off' && !tl.events.length) parts.push(h('p', { class: 'muted', style: 'text-align:center;margin-top:30px' }, 'Giorno di riposo'));
+  if (day.kind === 'off' && !tl.events.length) parts.push(h('p', { class: 'muted', style: 'text-align:center;margin-top:30px' }, 'Giorno OFF'));
   if (day.kind === 'blank') parts.push(h('p', { class: 'muted', style: 'text-align:center;margin-top:30px' }, 'Nessun servizio indicato nel PDF'));
   return parts;
 }
