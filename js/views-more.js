@@ -1,5 +1,5 @@
 // "Altro": import, cronologia, export .ics, backup, impostazioni.
-import { h, fmtDayShort, fmtDayLong, fmtMonth, titleCase } from './util.js';
+import { h, fmtDayShort, fmtDayLong, fmtMonth } from './util.js';
 import { state, actions, saveSettings, monthKeys, homeTravelMin } from './state.js';
 import { checkTotals } from '../src/parser.js';
 import { buildIcs } from '../src/ics.js';
@@ -204,7 +204,6 @@ export function renderMore(view) {
         alert(e.message ?? String(e));
       }
     } }, 'Forza il riscaricamento dell’app'),
-    state.data.pilot ? h('div', { class: 'cmp' }, h('span', {}, 'Pilota'), h('b', {}, `${state.data.pilot.code} · ${titleCase(state.data.pilot.name)}`)) : null,
     imports.length ? h('button', { class: 'btn danger', style: 'margin-top:10px', onclick: async () => { if (confirm('Cancellare TUTTI i turni salvati su questo dispositivo?')) { await clearImports(); await actions.refresh(); actions.toast('Dati cancellati'); } } }, 'Cancella tutti i dati') : null));
   view.replaceChildren(...parts);
 }
