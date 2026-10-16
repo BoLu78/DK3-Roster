@@ -193,7 +193,8 @@ function cellsOf(row) {
     if (rel < 14 && RE_DAY_LABEL.test(s)) cells.dateLabel = s;
     else if (rel >= 40 && rel <= 56 && /^(C\/I|C\/O|Briefing|Debriefing)$/.test(s)) cells.marker = s;
     else if (rel >= 30 && rel <= 44 && /^H\d$/.test(s)) cells.hotel = s;
-    else if (rel >= 77 && rel <= 110 && /^\d{3,5}$/.test(s) && !cells.number) cells.number = s;
+    else if (rel >= 77 && rel <= 110 && /^\d{1,5}$/.test(s) && !cells.number) cells.number = s;
+    else if (rel >= 40 && rel < 77 && /^DH\/[A-Z0-9]{2}$/.test(s)) cells.duty.push(s); // positioning, es. "DH/W4"
     else if (rel >= 55 && rel <= 130) cells.duty.push(s); // "OFF", "NO", "Pick" + "Up"
     else if (within(it, 148, 175) && RE_IATA.test(s)) cells.dep = s;
     else if (within(it, 182, 205) && RE_TIME.test(s)) cells.depTime = s;
@@ -250,7 +251,12 @@ function applyRow(day, c) {
     day.seq.push({ t: 'pickup', time: c.depTime });
   } else if (duty === 'E_FDP') {
     day.flags.push('E_FDP');
-  } else if (/^NO$/.test(duty) && c.number) {
+  } else if (/^DH\/[A-Z0-9]{2}$/.test(duty) && c.number) {
+    // positioning su altra compagnia ("DH/W4 6403"): trasferimento, non settore
+    day.legs.push(newLeg('transport', c, { code: `DH ${duty.slice(3)} ${c.number}` }));
+    day.seq.push({ t: 'leg', index: day.legs.length - 1 });
+  } else if (/^(?=.*[A-Z])[A-Z0-9]{2}$/.test(duty) && c.number) {
+    // volo: prefisso compagnia di 2 caratteri (NO, IZ, ...)
     day.legs.push(newLeg('flight', c, { airline: duty, number: c.number }));
     day.seq.push({ t: 'leg', index: day.legs.length - 1 });
   } else if (/^[A-Z]{3}-[A-Z]{3}$/.test(duty)) {
@@ -313,17 +319,17 @@ const SECTION_TITLES = [
 ];
 
 function parseTotals(row, totals) {
-  const t = row.items.map((i) => i.s);
-  const val = (label) => {
-    const k = t.indexOf(label);
-    return k >= 0 ? t[k + 1] : null;
-  };
-  if (t.includes('Flight time')) {
-    totals.ft = val('Flight time');
-    totals.dt = val('Duty time');
-  }
-  if (t.includes('Off days')) totals.offDays = Number(val('Off days'));
-  if (t.includes('Off claim')) totals.offClaim = Number(val('Off claim'));
+  // le etichette possono arrivare intere ("Duty time") o spezzate ("Duty" + "time")
+  const t = row.items.map((i) => i.s).join(' ').replace(/\s+/g, ' ');
+  const val = (re) => re.exec(t)?.[1] ?? null;
+  const ft = val(/Flight time (\d+:\d\d)/);
+  const dt = val(/Duty time (\d+:\d\d)/);
+  const offDays = val(/Off days (\d+)/);
+  const offClaim = val(/Off claim (\d+)/);
+  if (ft) totals.ft = ft;
+  if (dt) totals.dt = dt;
+  if (offDays) totals.offDays = Number(offDays);
+  if (offClaim) totals.offClaim = Number(offClaim);
 }
 
 function parseCrewCodes(items) {
@@ -414,7 +420,7 @@ export function parseRoster(pages) {
     } else if (state === 'crewLeg') {
       const label = row.items.find((i) => i.rel < 16 && RE_DAY_LABEL.test(i.s));
       if (label) {
-        const num = row.items.find((i) => i.rel >= 55 && /^\d{3,5}$/.test(i.s));
+        const num = row.items.find((i) => i.rel >= 55 && /^\d{1,5}$/.test(i.s));
         const times = row.items.filter((i) => i.rel >= 100 && RE_TIME.test(i.s));
         curCrew = { label: label.s, number: num?.s ?? null, depTime: times[0]?.s ?? null, cockpit: [], cabin: [] };
         crewLegs.push(curCrew);
