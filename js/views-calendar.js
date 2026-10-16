@@ -9,6 +9,7 @@ import { buildDayTimeline } from '../src/timeline.js';
 import { times, utcText, locText } from './timefmt.js';
 import { arrowRoute } from './views-list.js';
 import { eventName } from '../src/labels.js';
+import { airlineNote } from '../src/airlines.js';
 
 const base = () => state.data.pilot?.base ?? 'MXP';
 let selected = null;
@@ -88,6 +89,7 @@ function selectedCard(date) {
       const l = e.leg;
       rows.push(h('div', { class: 'cl' }, h('div', { class: 'cl-t' }, l.kind === 'flight' ? `${l.airline ?? ''}${l.number}` : l.code ?? '', ' · ', `${l.dep ?? ''} → ${l.arr ?? ''}`, l.ac ? h('span', { class: 'muted' }, ` · ${l.ac}`) : null),
         h('div', {}, line(e.depMs, l.dep), ' → ', line(e.arrMs, l.arr)),
+        airlineNote(l) ? h('div', { class: 'airline-note' }, airlineNote(l)) : null,
         l.takeoff || l.landing ? h('div', { class: 'muted', style: 'font-size:12.5px' }, [l.takeoff ? 'Decollo' : null, l.landing ? 'Atterraggio' : null].filter(Boolean).join(' + ')) : null));
     } else if (e.t === 'pickup') rows.push(h('div', { class: 'cl' }, h('div', { class: 'cl-t' }, 'Pick up'), h('div', {}, line(e.ms, day.checkIn?.airport ?? day.airport))));
     else rows.push(h('div', { class: 'cl' }, h('div', { class: 'cl-t' }, eventName(e.label, e.t === 'ci' ? 'C/I' : 'C/O'), ' ', e.airport ?? ''), h('div', {}, line(e.ms, e.airport))));

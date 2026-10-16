@@ -253,7 +253,7 @@ function applyRow(day, c) {
     day.flags.push('E_FDP');
   } else if (/^DH\/[A-Z0-9]{2}$/.test(duty) && c.number) {
     // positioning su altra compagnia ("DH/W4 6403"): trasferimento, non settore
-    day.legs.push(newLeg('transport', c, { code: `DH ${duty.slice(3)} ${c.number}` }));
+    day.legs.push(newLeg('transport', c, { code: `DH ${duty.slice(3)} ${c.number}`, airline: duty.slice(3), number: c.number }));
     day.seq.push({ t: 'leg', index: day.legs.length - 1 });
   } else if (/^(?=.*[A-Z])[A-Z0-9]{2}$/.test(duty) && c.number) {
     // volo: prefisso compagnia di 2 caratteri (NO, IZ, ...)

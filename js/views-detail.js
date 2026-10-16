@@ -11,6 +11,7 @@ import { collectRoutes } from '../src/geo.js';
 import { createMap } from './map.js';
 import { markDaySeen } from './seen.js';
 import { icaoFor } from '../src/airports-icao.js';
+import { airlineNote } from '../src/airlines.js';
 
 const sheet = () => document.getElementById('sheet');
 
@@ -34,8 +35,10 @@ function legCard(item, day) {
     h('div', { class: 'tl' }, t ? (t.loc ? locText(t) : 'ora locale n.d.') : ''),
     h('div', { class: 'wxline' }, wxChip(code, right ? arrMs : depMs, { detail: true })));
   const off = utcOffsetHours(depMs, leg.dep, state.data.airports);
+  const other = airlineNote(leg);
   return h('div', { class: 'leg' },
     h('div', { class: 'head' }, h('b', {}, name), h('span', {}, leg.ac ?? '')),
+    other ? h('div', { class: 'airline-note' }, other) : null,
     h('div', { class: 'route' }, pt(leg.dep, dep, false),
       h('div', { class: 'mid' },
         dur != null && leg.kind !== 'ground' ? h('div', { class: 'dur' }, fmtDuration(dur)) : null,

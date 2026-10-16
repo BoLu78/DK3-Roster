@@ -9,6 +9,7 @@ import { evaluateRecurrent } from '../src/recurrent.js';
 import { showImportSheet } from './views-more.js';
 import { fmtHM } from '../src/ftl.js';
 import { eventName } from '../src/labels.js';
+import { airlineNote } from '../src/airlines.js';
 import { wxChip } from './weather-ui.js';
 
 export const arrowRoute = (day) => routeOf(day).split('-').join(' → ');
@@ -49,6 +50,8 @@ export function daySummary(day) {
       }
     }
     if (day.kind === 'flight') out.extra.push(flightNumbers(day));
+    // voli o positioning su altre compagnie: "per Arkia", "DH Wizz Air Malta"
+    for (const note of new Set(day.legs.map(airlineNote).filter(Boolean))) out.extra.push(note);
     if (day.kind === 'sim' && day.legs[0]?.note) out.extra.push(day.legs[0].note);
     if (first && !['pickup', 'ci'].includes(first.t)) out.extra.push('↤ dal giorno prima');
     if (hasCi && !hasCo) out.extra.push('continua il giorno dopo ↦');
