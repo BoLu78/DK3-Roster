@@ -72,7 +72,7 @@ export function buildDuties(days) {
   const open = (startMs, ci) => ({ startMs, endMs: startMs, pickupMs: pickup, ci, co: null, legs: [], dates: [], ft: null, dt: null, hotel: null });
   const close = () => {
     if (!cur) return;
-    cur.kind = cur.legs.some((l) => l.leg.kind === 'flight') ? 'flight' : cur.legs.some((l) => l.leg.kind === 'ground') ? 'sim' : 'transport';
+    cur.kind = cur.legs.some((l) => l.leg.kind === 'flight') ? 'flight' : cur.legs.some((l) => l.leg.kind === 'ground') ? (cur.legs.some((l) => l.leg.kind === 'ground' && l.leg.sim !== false) ? 'sim' : 'ground') : 'transport';
     if (cur.endMs > cur.startMs || cur.legs.length) duties.push(cur);
     cur = null;
   };
@@ -93,6 +93,12 @@ export function buildDuties(days) {
         cur.legs.push(ev);
         cur.endMs = Math.max(cur.endMs, ev.arrMs ?? ev.depMs ?? 0);
         touch();
+        // attività a terra senza C/I (corso, visita medica): è un servizio a sé
+        if (ev.leg.kind === 'ground' && !cur.ci) {
+          cur.ft = day.ft;
+          cur.dt = day.dt;
+          close();
+        }
       } else if (ev.t === 'co') {
         if (!cur) cur = open(ev.ms, null);
         cur.co = ev;

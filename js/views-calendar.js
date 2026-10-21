@@ -18,6 +18,7 @@ const BAR = {
   standby: { label: 'SBY', cls: 'k-standby' },
   reserve: { label: 'RSV', cls: 'k-reserve' },
   sim: { label: 'SIM', cls: 'k-sim' },
+  ground: { label: 'TERRA', cls: 'k-sim' },
   off: { label: 'OFF', cls: 'k-off' },
   vacation: { label: '🌴 FER', cls: 'k-vac' },
   rest: { label: 'X', cls: 'k-off' },
@@ -32,6 +33,7 @@ function dayBarOf(day) {
 // n = quante colonne (giorni) occupa la barra: in una sola colonna c'è poco spazio
 function tripLabel(trip, n) {
   if (trip.kind === 'sim') return 'SIM';
+  if (trip.kind === 'ground') return (trip.duties[0]?.legs[0]?.leg.code ?? 'TERRA').split('_')[0];
   const icon = trip.kind === 'flight' ? '✈︎' : '➜';
   const s = trip.stops;
   if (n === 1) return `${icon} ${s[0] ?? ''}${s.length > 1 ? `+${s.length - 1}` : ''}`.trim();
@@ -60,7 +62,7 @@ function weekRow(weekStart, key, trips, today) {
     const s = dates.indexOf(from) + 1;
     const n = dates.indexOf(to) + 1 - s + 1;
     for (let i = 0; i < n; i++) covered.add(dates[s - 1 + i]);
-    const cls = t.kind === 'flight' ? 'k-flight' : t.kind === 'sim' ? 'k-sim' : 'k-transport';
+    const cls = t.kind === 'flight' ? 'k-flight' : t.kind === 'sim' || t.kind === 'ground' ? 'k-sim' : 'k-transport';
     wk.append(h('button', { class: `bar solid ${cls}${t.startDate < from ? ' cont-l' : ''}${t.endDate > to ? ' cont-r' : ''}`, style: `grid-column:${s} / span ${n};grid-row:2`, onclick: () => { selected = from; renderCalendar(document.getElementById('view')); } }, tripLabel(t, n)));
   }
   dates.forEach((date, i) => {
@@ -122,7 +124,7 @@ export function renderCalendar(view) {
     h('div', {}, h('b', {}, s.flightDays), h('small', {}, 'Giorni volo')),
     h('div', {}, h('b', {}, s.standbyDays + s.reserveDays), h('small', {}, 'Sby/Rsv'))));
   parts.push(h('div', { class: 'legend' },
-    [['k-flight', 'Rotazione'], ['k-transport', 'Trasferimento'], ['k-standby', 'Stand-by'], ['k-reserve', 'Reserve'], ['k-sim', 'Simulatore'], ['k-vac', 'Ferie'], ['k-off', 'OFF']].map(([c, t]) => h('span', { class: c }, h('i'), t)),
+    [['k-flight', 'Rotazione'], ['k-transport', 'Trasferimento'], ['k-standby', 'Stand-by'], ['k-reserve', 'Reserve'], ['k-sim', 'Sim / terra'], ['k-vac', 'Ferie'], ['k-off', 'OFF']].map(([c, t]) => h('span', { class: c }, h('i'), t)),
     h('span', {}, '🛏 hotel')));
   view.replaceChildren(...parts);
 }

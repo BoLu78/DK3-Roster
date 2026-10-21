@@ -39,7 +39,8 @@ for (const file of pdfs) {
           assert.match(l.arrTime, /^\d{4}$/);
           assert.ok(l.dep && l.arr && l.ac, `${d.date}: tratta incompleta`);
           // l'equipaggio non c'è sempre nel PDF (es. voli da BLQ): se c'è, deve essere completo
-          if (l.crew) assert.ok(l.crew.cockpit.length >= 2 && l.crew.cabin.length >= 1, `${d.date} ${l.number}: equipaggio incompleto`);
+          // sui voli per altre compagnie (IZ, BY...) il PDF elenca solo i Neos a bordo
+          if (l.crew && l.airline === 'NO') assert.ok(l.crew.cockpit.length >= 2 && l.crew.cabin.length >= 1, `${d.date} ${l.number}: equipaggio incompleto`);
         }
       }
       if (d.hotel) assert.ok(d.hotel.name, `${d.date}: hotel senza nome`);
@@ -49,8 +50,10 @@ for (const file of pdfs) {
     const duties = buildDuties(all);
     assert.ok(duties.length > 0 || r.days.every((d) => d.kind !== 'flight'));
     for (const du of duties) {
-      assert.ok(du.ci && du.co, `servizio del ${du.dates[0]} senza C/I o C/O`);
       assert.ok(du.endMs > du.startMs);
+      // corsi e visite mediche non hanno C/I e C/O nel PDF
+      if (du.kind === 'ground' && !du.ci && !du.co) continue;
+      assert.ok(du.ci && du.co, `servizio del ${du.dates[0]} senza C/I o C/O`);
       assert.ok(du.ci.ms <= du.legs[0]?.depMs && du.legs.at(-1)?.arrMs <= du.co.ms, `${du.dates[0]}: tratte fuori da C/I-C/O`);
     }
     const ftSum = duties.reduce((a, du) => a + hhmmToMinutes(du.ft), 0);

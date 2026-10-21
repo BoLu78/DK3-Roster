@@ -57,7 +57,7 @@ export function buildFamilyIcs(days, airports, options = {}, nowMs = Date.now())
     const last = [...legs].reverse().find((l) => l.arrMs != null);
     if (!first || !last) continue;
     const route = routeOfLegs(legs.map((l) => l.leg)).split('-').join(' → ');
-    const title = trip.kind === 'sim' ? `Simulatore${first.leg.dep ? ` (${first.leg.dep})` : ''}` : trip.kind === 'flight' ? `✈ ${route}` : `➜ Trasferimento ${route}`;
+    const title = trip.kind === 'sim' ? `Simulatore${first.leg.dep ? ` (${first.leg.dep})` : ''}` : trip.kind === 'ground' ? `Attività a terra${first.leg.code ? ` ${first.leg.code}` : ''}` : trip.kind === 'flight' ? `✈ ${route}` : `➜ Trasferimento ${route}`;
     const hm = (ms, apt) => localTime(ms, apt, airports, null)?.time ?? fmtUtc(ms) + 'Z';
     const lines = [];
     let lastDate = null;

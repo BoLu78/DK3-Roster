@@ -76,6 +76,7 @@ export const KINDS = {
   transport: { label: 'Trasferimento', cls: 'k-transport' },
   standby: { label: 'Stand-by', cls: 'k-standby' },
   sim: { label: 'Simulatore', cls: 'k-sim' },
+  ground: { label: 'Attività a terra', cls: 'k-sim' },
   off: { label: 'OFF', cls: 'k-off' },
   vacation: { label: 'Ferie', cls: 'k-vac' },
   rest: { label: 'Giorno X (nessun servizio)', cls: 'k-off' },

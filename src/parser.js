@@ -142,21 +142,31 @@ function parseMeta(pages) {
 // Striscia riepilogativa in cima a ogni pagina: una colonna per giorno del
 // mese (Off / Sby / FlD / Tsp / Sim con orario di inizio e fine). Occupa tutta
 // la larghezza della pagina, quindi si legge senza dividere in colonne.
-function parseStrip(page) {
-  const numbers = page.items.filter((i) => i.y >= 70 && i.y <= 80 && /^\d\d$/.test(i.s) && i.x > 100);
+// La striscia copre al massimo 31 caselle a partire dall'inizio del periodo:
+// con periodi più lunghi (es. 21 ott - 4 dic) i numeri dei giorni si ripetono,
+// quindi ogni casella va abbinata alla sua data vera, in ordine da sinistra.
+// Restituisce { 'AAAA-MM-GG': { type, start, end } }.
+function parseStrip(page, periodStart) {
+  const numbers = page.items.filter((i) => i.y >= 70 && i.y <= 80 && /^\d\d$/.test(i.s) && i.x > 100).sort((a, b) => a.x - b.x);
   const strip = {};
+  let date = periodStart ? isoAddDays(periodStart, -1) : null;
   const rowY = (lo, hi) => page.items.filter((i) => i.y >= lo && i.y <= hi);
   const typeRow = rowY(81, 85);
   const startRow = rowY(87, 91);
   const endRow = rowY(93, 97);
   for (const n of numbers) {
-    const day = Number(n.s);
+    if (!date) break;
+    // prossima data con quel numero di giorno (di solito il giorno dopo)
+    let next = isoAddDays(date, 1);
+    for (let k = 0; k < 3 && Number(next.slice(8)) !== Number(n.s); k++) next = isoAddDays(next, 1);
+    if (Number(next.slice(8)) !== Number(n.s)) break;
+    date = next;
     const pick = (row) => row.find((i) => Math.abs(i.x - (n.x - 6)) <= 8);
     const type = pick(typeRow);
     if (!type) continue;
     const s = pick(startRow);
     const e = pick(endRow);
-    strip[day] = { type: type.s, start: s?.s ?? null, end: e?.s ?? null };
+    strip[date] = { type: type.s, start: s?.s ?? null, end: e?.s ?? null };
   }
   return strip;
 }
@@ -262,7 +272,8 @@ function applyRow(day, c) {
   } else if (/^[A-Z]{3}-[A-Z]{3}$/.test(duty)) {
     day.legs.push(newLeg('transport', c, { code: duty }));
     day.seq.push({ t: 'leg', index: day.legs.length - 1 });
-  } else if (/^[A-Z0-9]{2,4}_\d+$/.test(duty)) {
+  } else if (/^[A-Z0-9]{2,5}_[A-Z0-9]{1,4}$/.test(duty)) {
+    // attività a terra o simulatore: "MXP_001", "GRT_B78", "MED_PIL"
     day.legs.push(newLeg('ground', c, { code: duty }));
     day.seq.push({ t: 'leg', index: day.legs.length - 1 });
   } else if (duty === 'X') {
@@ -286,6 +297,20 @@ function applyRow(day, c) {
   if (c.dt && !day.dt) day.dt = c.dt;
   if (c.simFt) day.simFt = c.simFt;
 }
+
+// tipo di giornata dal contenuto, per i giorni che la striscia non copre
+function kindFromContent(day) {
+  if (day.legs.some((l) => l.kind === 'flight')) return 'flight';
+  if (day.legs.some((l) => l.kind === 'ground')) return 'ground';
+  if (day.legs.length) return 'transport';
+  if (day.code === 'OFF') return 'off';
+  if (day.code === 'HOL') return 'vacation';
+  if (day.code === 'STAND-BY' || day.code === 'RESERVE') return 'standby';
+  if (day.code === 'X' || day.checkOut || day.hotel) return 'rest';
+  return 'blank';
+}
+
+const looksLikeSim = (code) => /SIM|FFS|^[A-Z]{3}_\d+$/.test(code ?? '');
 
 function newLeg(kind, c, extra) {
   return {
@@ -345,7 +370,7 @@ function parseCrewCodes(items) {
 
 export function parseRoster(pages) {
   const meta = parseMeta(pages);
-  const strip = parseStrip(pages[0]);
+  const strip = parseStrip(pages[0], meta.periodStart);
   const totals = { ft: null, dt: null, offDays: null, offClaim: null };
   const hotels = {};
   const airports = {};
@@ -438,7 +463,7 @@ export function parseRoster(pages) {
     } else if (state === 'crewGround') {
       const label = row.items.find((i) => i.rel < 16 && RE_DAY_LABEL.test(i.s));
       if (label) {
-        const code = row.items.find((i) => i.rel >= 30 && i.rel < 100 && /_\d+$/.test(i.s));
+        const code = row.items.find((i) => i.rel >= 30 && i.rel < 100 && /^[A-Z0-9]{2,5}_[A-Z0-9]{1,4}$/.test(i.s));
         curCrew = { label: label.s, code: code?.s ?? null, crew: [] };
         crewGround.push(curCrew);
         continue;
@@ -497,18 +522,20 @@ export function parseRoster(pages) {
   }
 
   // striscia riepilogativa -> tipo di giornata
-  const KIND = { Off: 'off', Sby: 'standby', FlD: 'flight', Tsp: 'transport', Sim: 'sim', Vac: 'vacation' };
+  const KIND = { Off: 'off', Sby: 'standby', FlD: 'flight', Tsp: 'transport', Sim: 'sim', Vac: 'vacation', Dty: 'ground' };
   // "X": nessun nuovo servizio (riposo fuori sede) oppure coda di un servizio iniziato il giorno prima
   const kindOfX = (d) => (d.legs.some((l) => l.kind === 'flight') ? 'flight' : d.legs.length ? 'transport' : 'rest');
   for (const day of days) {
-    const s = strip[Number(day.date.slice(8))];
+    const s = strip[day.date];
     if (s) {
       day.strip = s;
       day.kind = s.type === 'X' ? kindOfX(day) : KIND[s.type] ?? 'other';
-    } else if (day.legs.some((l) => l.kind === 'flight')) day.kind = 'flight';
-    else if (day.code === 'OFF') day.kind = 'off';
-    else if (day.code) day.kind = 'standby';
-    else day.kind = 'blank';
+    } else day.kind = kindFromContent(day); // giorno oltre la striscia
+    // le attività di terra sono simulatore solo se la striscia dice Sim (o, senza striscia, dal codice)
+    for (const l of day.legs) {
+      if (l.kind === 'ground') l.sim = s ? s.type === 'Sim' : looksLikeSim(l.code);
+    }
+    if (!s && day.kind === 'ground' && day.legs.some((l) => l.sim)) day.kind = 'sim';
   }
 
   // equipaggio -> tratte

@@ -13,7 +13,7 @@ function finish(duties, base, airports) {
   const legs = duties.flatMap((d) => d.legs.map((l) => l.leg));
   const stops = [];
   for (const l of legs) for (const a of [l.dep, l.arr]) if (a && a !== base && !stops.includes(a)) stops.push(a);
-  const kind = legs.some((l) => l.kind === 'flight') ? 'flight' : legs.some((l) => l.kind === 'ground') ? 'sim' : 'transport';
+  const kind = legs.some((l) => l.kind === 'flight') ? 'flight' : legs.some((l) => l.kind === 'ground') ? (legs.some((l) => l.kind === 'ground' && l.sim !== false) ? 'sim' : 'ground') : 'transport';
   return { duties, kind, startMs: first.startMs, endMs: last.endMs, startDate: dateOf(first.startMs, first.ci?.airport ?? first.legs[0]?.leg.dep, base, airports),
     endDate: dateOf(last.endMs, last.co?.airport ?? last.legs.at(-1)?.leg.arr, base, airports),
     stops,
@@ -26,7 +26,8 @@ export function buildTrips(days, base, airports) {
   let cur = [];
   for (const d of buildDuties(days)) {
     cur.push(d);
-    const end = d.co?.airport ?? d.legs.at(-1)?.leg.arr;
+    // un'attività a terra senza arrivo (corso, visita medica) finisce dove si svolge
+    const end = d.co?.airport ?? d.legs.at(-1)?.leg.arr ?? d.legs.at(-1)?.leg.dep;
     if (!base || end === base) {
       trips.push(finish(cur, base, airports));
       cur = [];

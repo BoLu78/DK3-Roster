@@ -77,6 +77,7 @@ function dutySummary(duty) {
   const legs = duty.legs.map((l) => l.leg);
   if (duty.kind === 'flight') return `✈ ${routeOfLegs(legs)} ${flightNumbersOf(legs)}`.trim();
   if (duty.kind === 'sim') return 'Simulatore';
+  if (duty.kind === 'ground') return `Attività a terra ${legs[0]?.code ?? ''}`.trim();
   return `Trasferimento ${routeOfLegs(legs)}`.trim();
 }
 

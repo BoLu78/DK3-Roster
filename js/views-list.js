@@ -37,11 +37,11 @@ export function daySummary(day) {
     return { utc: `${a.utc}–${b.utc}Z${b.utcDelta > a.utcDelta ? '+1' : ''}`, loc };
   };
   const base = day.checkIn?.airport ?? day.airport;
-  if (day.kind === 'flight' || day.kind === 'transport' || day.kind === 'sim') {
+  if (day.kind === 'flight' || day.kind === 'transport' || day.kind === 'sim' || day.kind === 'ground') {
     const first = day.seq?.[0];
     const hasCo = tl.events.some((e) => e.t === 'co');
     const hasCi = tl.events.some((e) => e.t === 'ci');
-    out.title = day.kind === 'sim' ? 'Simulatore' : arrowRoute(day) || (hasCi ? `Check-in ${day.checkIn.airport}` : 'Servizio');
+    out.title = day.kind === 'sim' ? 'Simulatore' : day.kind === 'ground' ? 'Attività a terra' : arrowRoute(day) || (hasCi ? `Check-in ${day.checkIn.airport}` : 'Servizio');
     if (tl.startMs != null && tl.endMs != null) {
       if (tl.endMs > tl.startMs) out.timeline = rng(tl.startMs, airportAt(tl, tl.startMs, base), tl.endMs, airportAt(tl, tl.endMs, base));
       else {
@@ -52,7 +52,7 @@ export function daySummary(day) {
     if (day.kind === 'flight') out.extra.push(flightNumbers(day));
     // voli o positioning su altre compagnie: "per Arkia", "DH Wizz Air Malta"
     for (const note of new Set(day.legs.map(airlineNote).filter(Boolean))) out.extra.push(note);
-    if (day.kind === 'sim' && day.legs[0]?.note) out.extra.push(day.legs[0].note);
+    if ((day.kind === 'sim' || day.kind === 'ground') && day.legs[0]) out.extra.push([day.legs[0].code, day.legs[0].note].filter(Boolean).join(' · '));
     if (first && !['pickup', 'ci'].includes(first.t)) out.extra.push('↤ dal giorno prima');
     if (hasCi && !hasCo) out.extra.push('continua il giorno dopo ↦');
   } else if (day.kind === 'standby') {
@@ -133,7 +133,7 @@ const lastChanged = () => [...state.imports].filter((i) => i.changes && !i.seen)
 
 export function nextDuty() {
   const today = todayIso();
-  return [...state.data.days.values()].filter((d) => d.date >= today && ['flight', 'transport', 'sim', 'standby'].includes(d.kind)).sort((a, b) => a.date.localeCompare(b.date))[0];
+  return [...state.data.days.values()].filter((d) => d.date >= today && ['flight', 'transport', 'sim', 'ground', 'standby'].includes(d.kind)).sort((a, b) => a.date.localeCompare(b.date))[0];
 }
 
 export function renderList(view) {

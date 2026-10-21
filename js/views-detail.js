@@ -117,7 +117,7 @@ function body(day) {
   const parts = [];
   const isExt = day.flags.includes('E_FDP');
   const hero = h('div', { class: `hero ${k.cls}${isExt ? ' ext' : ''}` }, h('span', { class: 'pill' }, k.label), isExt ? h('span', { class: 'pill extpill' }, 'EXTENSION') : null,
-    h('div', { class: 'big' }, day.kind === 'flight' || day.kind === 'transport' ? arrowRoute(day) : day.kind === 'sim' ? 'Simulatore' : day.kind === 'off' ? 'OFF' : day.kind === 'vacation' ? 'Ferie' : day.kind === 'rest' ? 'Giorno X' : day.kind === 'standby' ? k.label : 'Nessun servizio'),
+    h('div', { class: 'big' }, day.kind === 'flight' || day.kind === 'transport' ? arrowRoute(day) : day.kind === 'sim' ? 'Simulatore' : day.kind === 'ground' ? 'Attività a terra' : day.kind === 'off' ? 'OFF' : day.kind === 'vacation' ? 'Ferie' : day.kind === 'rest' ? 'Giorno X' : day.kind === 'standby' ? k.label : 'Nessun servizio'),
     day.kind === 'standby' && tl.window ? h('div', {}, timeEl(times(tl.window.startMs, day.airport, ref)), ' → ', timeEl(times(tl.window.endMs, day.airport, ref))) : null);
   parts.push(hero);
 
