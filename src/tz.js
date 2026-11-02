@@ -33,7 +33,8 @@ const BY_AIRPORT = {
   CCS: 'America/Caracas', BOG: 'America/Bogota', CTG: 'America/Bogota', LIM: 'America/Lima',
   // Africa
   DJE: 'Africa/Tunis', MIR: 'Africa/Tunis', NBE: 'Africa/Tunis', TUN: 'Africa/Tunis',
-  RAK: 'Africa/Casablanca', AGA: 'Africa/Casablanca', CMN: 'Africa/Casablanca', FEZ: 'Africa/Casablanca',
+  // Marocco: ora GMT fissa dal 20 set 2026 (i fusi di telefoni e computer non lo sanno ancora)
+  RAK: 'UTC', AGA: 'UTC', CMN: 'UTC', FEZ: 'UTC', TNG: 'UTC', ESU: 'UTC', OUD: 'UTC', NDR: 'UTC', OZZ: 'UTC', RBA: 'UTC', VIL: 'UTC',
   DSS: 'Africa/Dakar', BJL: 'Africa/Banjul', ACC: 'Africa/Accra', LOS: 'Africa/Lagos', WDH: 'Africa/Windhoek', CPT: 'Africa/Johannesburg', JNB: 'Africa/Johannesburg',
   VFA: 'Africa/Harare', LVI: 'Africa/Lusaka', MPM: 'Africa/Maputo', ADD: 'Africa/Addis_Ababa',
   // Europa
@@ -45,7 +46,7 @@ const BY_COUNTRY = {
   ITALY: 'Europe/Rome', EGYPT: 'Africa/Cairo', SPAIN: 'Europe/Madrid', GREECE: 'Europe/Athens', FRANCE: 'Europe/Paris', GERMANY: 'Europe/Berlin',
   AUSTRIA: 'Europe/Vienna', SWITZERLAND: 'Europe/Zurich', NETHERLANDS: 'Europe/Amsterdam', BELGIUM: 'Europe/Brussels', MALTA: 'Europe/Malta',
   CROATIA: 'Europe/Zagreb', SLOVENIA: 'Europe/Ljubljana', ALBANIA: 'Europe/Tirane', BULGARIA: 'Europe/Sofia', ROMANIA: 'Europe/Bucharest',
-  TURKEY: 'Europe/Istanbul', TUNISIA: 'Africa/Tunis', MOROCCO: 'Africa/Casablanca', JORDAN: 'Asia/Amman', ISRAEL: 'Asia/Jerusalem',
+  TURKEY: 'Europe/Istanbul', TUNISIA: 'Africa/Tunis', MOROCCO: 'UTC', JORDAN: 'Asia/Amman', ISRAEL: 'Asia/Jerusalem',
   OMAN: 'Asia/Muscat', 'UNITED ARAB EMIRATES': 'Asia/Dubai', KENYA: 'Africa/Nairobi', TANZANIA: 'Africa/Dar_es_Salaam', MALDIVES: 'Indian/Maldives',
   MAURITIUS: 'Indian/Mauritius', SEYCHELLES: 'Indian/Mahe', MADAGASCAR: 'Indian/Antananarivo', 'CAPE VERDE': 'Atlantic/Cape_Verde',
   JAMAICA: 'America/Jamaica', CUBA: 'America/Havana', 'DOMINICAN REPUBLIC': 'America/Santo_Domingo', THAILAND: 'Asia/Bangkok', 'SRI LANKA': 'Asia/Colombo',
@@ -65,3 +66,25 @@ export function timezoneFor(iata, airports = {}) {
 }
 
 export const KNOWN_AIRPORT_COUNT = Object.keys(BY_AIRPORT).length;
+
+// Ora locale di un fuso -> istante UTC (ms). isoDate "AAAA-MM-GG", hhmm "1415".
+// L'ora legale la calcola il browser: si parte dall'ipotesi UTC e si corregge
+// con lo scarto del fuso in quel momento (due passaggi bastano anche al cambio d'ora).
+const tzFormatters = new Map();
+function offsetMin(ms, tz) {
+  let f = tzFormatters.get(tz);
+  if (!f) {
+    f = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    tzFormatters.set(tz, f);
+  }
+  const p = Object.fromEntries(f.formatToParts(new Date(ms)).map((x) => [x.type, x.value]));
+  return (Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute) - Math.floor(ms / 60000) * 60000) / 60000;
+}
+
+export function localToUtcMs(isoDate, hhmm, tz) {
+  const wall = Date.parse(`${isoDate}T${hhmm.slice(0, 2)}:${hhmm.slice(2, 4)}:00Z`);
+  if (!tz) return wall;
+  let ms = wall - offsetMin(wall, tz) * 60000;
+  ms = wall - offsetMin(ms, tz) * 60000;
+  return ms;
+}

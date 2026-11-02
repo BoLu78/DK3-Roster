@@ -307,7 +307,7 @@ function busyIntervals(days, duties, ctx) {
   for (const day of days) {
     if (day.kind !== 'standby') continue;
     if (day.window) {
-      const base = Date.parse(day.date + 'T00:00:00Z');
+      const base = Date.parse((day.utcBase ?? day.date) + 'T00:00:00Z');
       const [h1, m1] = [Number(day.window.start.slice(0, 2)), Number(day.window.start.slice(2))];
       const [h2, m2] = [Number(day.window.end.slice(0, 2)), Number(day.window.end.slice(2))];
       const from = base + (h1 * 60 + m1) * MIN;
@@ -371,7 +371,7 @@ export function analyze(days, options) {
   const standbyItems = [];
   for (const day of sorted) {
     if (day.kind !== 'standby' || !day.window) continue;
-    const base0 = Date.parse(day.date + 'T00:00:00Z');
+    const base0 = Date.parse((day.utcBase ?? day.date) + 'T00:00:00Z');
     const toMs = (hhmm) => base0 + (Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(2))) * MIN;
     const startMs = toMs(day.window.start);
     let endMs = toMs(day.window.end);

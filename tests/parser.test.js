@@ -40,7 +40,8 @@ for (const file of pdfs) {
           assert.ok(l.dep && l.arr && l.ac, `${d.date}: tratta incompleta`);
           // l'equipaggio non c'è sempre nel PDF (es. voli da BLQ): se c'è, deve essere completo
           // sui voli per altre compagnie (IZ, BY...) il PDF elenca solo i Neos a bordo
-          if (l.crew && l.airline === 'NO') assert.ok(l.crew.cockpit.length >= 2 && l.crew.cabin.length >= 1, `${d.date} ${l.number}: equipaggio incompleto`);
+          // (un ferry può non avere cabina)
+          if (l.crew && l.airline === 'NO') assert.ok(l.crew.cockpit.length >= 2, `${d.date} ${l.number}: equipaggio incompleto`);
         }
       }
       if (d.hotel) assert.ok(d.hotel.name, `${d.date}: hotel senza nome`);

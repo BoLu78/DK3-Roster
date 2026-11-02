@@ -42,8 +42,14 @@ Il repository è pubblico. Non devono mai finire in git:
   colonna sinistra, poi la destra.
 - Il parsing va fatto **per coordinate** (x/y di ogni frammento di testo da pdf.js),
   non sul testo concatenato: l'ordine del testo estratto non è affidabile.
-- **Tutti gli orari nel PDF sono UTC.** L'app mostra sempre UTC e ora locale
-  (dell'aeroporto per i voli, di MXP per il resto).
+- **Due formati di orari.** I PDF classici sono in UTC. Da fine ottobre 2026 NetLine stampa anche
+  PDF in ora locale (intestazione "Local times at event airport. (!) if not in departure airport timezone"):
+  ogni orario è nel fuso del suo aeroporto, con "!" se diverso da quello di partenza e "+1" se è il giorno dopo.
+  Il parser (`normalizeTimes`) porta tutto in UTC, così il resto dell'app lavora sempre in UTC;
+  `day.utcBase` è la data UTC del primo orario quando è diversa da `day.date`.
+  L'app mostra sempre UTC e ora locale (dell'aeroporto per i voli, di MXP per il resto).
+- Fusi: il Marocco è a GMT fisso dal 20 set 2026, ma i database dei fusi di telefoni/computer
+  possono non saperlo: in `src/tz.js` gli aeroporti marocchini sono forzati a `UTC`.
 - Il PDF contiene anche i totali FT/DT/Off stampati (pagina 3) e le scadenze
   Recurrent Training/Checks (pagina 4): vanno letti e confrontati con i valori calcolati.
 

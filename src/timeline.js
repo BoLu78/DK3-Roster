@@ -25,7 +25,8 @@ export function sequenceOf(day) {
 // Istanti UTC di un giorno. Gli orari sono letti in ordine cronologico: quando un
 // orario è più piccolo del precedente significa che si è passati a mezzanotte (+1 giorno).
 export function buildDayTimeline(day) {
-  const base = dateToMs(day.date);
+  // utcBase: data UTC del primo orario, se diversa dalla data del giorno (PDF in ora locale)
+  const base = dateToMs(day.utcBase ?? day.date);
   let cursor = base;
   const at = (hhmm) => {
     if (!hhmm || !/^\d{4}$/.test(hhmm)) return null;
