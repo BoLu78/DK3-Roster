@@ -105,7 +105,7 @@ function fdpCard(d, day) {
         h('div', { class: 'offblocks-title' }, `${tr('Ultimo sblocco da', 'Latest off-block from')} ${f.firstDepApt}`),
         latestOffBlock(limitMin, 'max', tr('Massimo', 'Maximum'), null),
         latestOffBlock(L.discretion, 'disc', 'Cpt Discretion', f.firstDepAtHub ? tr(`Da evitare a ${f.firstDepApt}: base/hub con riserve e stand-by (OMA 7.2.1)`, `To be avoided at ${f.firstDepApt}: base/hub with reserve and standby crew (OM-A 7.2.1)`) : null),
-        h('small', { class: 'muted' }, tr('Per ritardi dopo la presentazione (se ti avvisano prima vale il delayed reporting, OMA 7.2.2).', 'For delays after reporting (if notified before, delayed reporting applies, OM-A 7.2.2).')))
+        h('small', { class: 'muted' }, tr('Orari validi se il ritardo nasce dopo il check-in. Se ti avvisano del ritardo prima di presentarti, si applica il delayed reporting (OMA 7.2.2) e i limiti cambiano.', 'Valid if the delay arises after check-in. If you are told about the delay before reporting, delayed reporting applies (OM-A 7.2.2) and the limits change.')))
     : null;
   const rows = [
     offBlock,
