@@ -115,7 +115,9 @@ test('ics: eventi, orari UTC, righe lunghe e caratteri speciali', () => {
   const off = day('2026-10-04', { kind: 'off', legs: [], checkIn: null, checkOut: null });
   const sby = day('2026-10-05', { kind: 'standby', code: 'STAND-BY', legs: [], checkIn: null, checkOut: null, window: { start: '0800', end: '1700' }, airport: 'MXP' });
   const { text, count } = buildIcs([d, off, sby], { MXP: { name: 'MILAN MALPENSA APT' } }, { scope: 'all', alarmMinutes: 120 }, Date.UTC(2026, 9, 2));
-  assert.equal(count, 2);
+  assert.equal(count, 3); // volo, OFF (tutto il giorno), stand-by
+  assert.ok(text.includes('SUMMARY:OFF'));
+  assert.ok(text.includes('UID:d2026-10-03-0@dk3-roster'));
   assert.ok(text.includes('DTSTART:20261003T053000Z'));
   assert.ok(text.includes('DTEND:20261003T170000Z'));
   assert.ok(text.includes('DTSTART:20261005T080000Z'));
@@ -123,8 +125,28 @@ test('ics: eventi, orari UTC, righe lunghe e caratteri speciali', () => {
   assert.ok(text.includes('HOTEL\\, CENTRO\\; (X)'));
   assert.ok(text.includes('SUMMARY:✈ MXP-RMF-MXP NO100/NO101'));
   for (const line of text.split('\r\n')) assert.ok(new TextEncoder().encode(line).length <= 75, 'riga troppo lunga: ' + line);
-  assert.equal(buildIcs([d, off, sby], {}, { scope: 'flights' }).count, 1);
+  assert.equal(buildIcs([d, off, sby], {}, { scope: 'flights' }).count, 3); // volo, OFF, "Nessun volo"
   assert.equal(buildIcs([d, off, sby], {}, { scope: 'all', from: '2026-10-05', to: '2026-10-31' }).count, 1);
+});
+
+test('ics: aggiornamenti senza doppioni, annullamenti, versione', () => {
+  const d = day('2026-10-03');
+  const d2 = day('2026-10-06');
+  const off3 = day('2026-10-03', { kind: 'off', legs: [], checkIn: null, checkOut: null });
+  const first = buildIcs([d, d2], {}, { version: 'Roster stampato 01/10 10:00' }, Date.UTC(2026, 9, 1));
+  assert.ok(first.text.includes('Roster stampato 01/10 10:00'));
+  assert.ok(first.emitted['d2026-10-03-0@dk3-roster']);
+  // nuova versione: il 3 diventa OFF (stesso UID, aggiornato), il 6 sparisce (annullato)
+  const second = buildIcs([off3], {}, { previous: first.emitted }, Date.UTC(2026, 9, 2));
+  assert.equal(second.cancelled, 1);
+  assert.ok(second.text.includes('UID:d2026-10-06-0@dk3-roster'));
+  assert.ok(second.text.includes('STATUS:CANCELLED'));
+  assert.equal((second.text.match(/UID:d2026-10-03-0@dk3-roster/g) ?? []).length, 1);
+  assert.ok(/SEQUENCE:(\d+)/.exec(second.text)[1] > /SEQUENCE:(\d+)/.exec(first.text)[1]);
+  // export di un mese: gli eventi di altri mesi non vengono annullati ma restano ricordati
+  const nov = buildIcs([], {}, { previous: first.emitted, from: '2026-11-01', to: '2026-11-30' });
+  assert.equal(nov.cancelled, 0);
+  assert.ok(nov.emitted['d2026-10-06-0@dk3-roster']);
 });
 
 test('statistiche: riepilogo mese e finestre mobili', () => {

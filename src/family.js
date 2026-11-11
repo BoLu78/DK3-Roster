@@ -8,7 +8,7 @@
 import { buildDayTimeline, fmtUtc, localTime } from './timeline.js';
 import { buildTrips } from './trips.js';
 import { routeOfLegs, flightNumbersOf } from './ics.js';
-import { icsDate, esc, fold } from './ics.js';
+import { icsDate, esc, fold, finishCalendar } from './ics.js';
 
 const addDay = (iso) => new Date(Date.parse(iso + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10);
 const dayBefore = (iso) => new Date(Date.parse(iso + 'T00:00:00Z') - 86400000).toISOString().slice(0, 10);
@@ -23,7 +23,8 @@ function cityOf(apt, airports) {
 
 // options: { base, from, to, flightNumbers: true }
 export function buildFamilyIcs(days, airports, options = {}, nowMs = Date.now()) {
-  const { base = 'MXP', from = null, to = null, flightNumbers = true } = options;
+  const { base = 'MXP', from = null, to = null, flightNumbers = true, version = '', previous = {} } = options;
+  const withVersion = (text) => [text, version].filter(Boolean).join('\n');
   const sorted = [...days].filter((d) => !d.spill).sort((a, b) => a.date.localeCompare(b.date));
   const trips = buildTrips([...days].sort((a, b) => a.date.localeCompare(b.date)), base, airports);
   const inRange = (date) => (!from || date >= from) && (!to || date <= to);
@@ -35,7 +36,7 @@ export function buildFamilyIcs(days, airports, options = {}, nowMs = Date.now())
   const allDay = (uid, date, summary, description) => {
     head(uid, summary);
     out.push(`DTSTART;VALUE=DATE:${date.replace(/-/g, '')}`, `DTEND;VALUE=DATE:${addDay(date).replace(/-/g, '')}`, 'TRANSP:TRANSPARENT');
-    if (description) out.push(`DESCRIPTION:${esc(description)}`);
+    if (description || version) out.push(`DESCRIPTION:${esc(withVersion(description))}`);
     out.push('END:VEVENT');
     count++;
   };
@@ -73,7 +74,7 @@ export function buildFamilyIcs(days, airports, options = {}, nowMs = Date.now())
     lines.push('(orari locali di ogni aeroporto)');
     head(`fam-trip-${trip.startDate}-${n}`, title);
     out.push(`DTSTART:${icsDate(first.depMs)}`, `DTEND:${icsDate(Math.max(last.arrMs, first.depMs + 60000))}`);
-    out.push(`LOCATION:${esc(`${first.leg.dep} → ${last.leg.arr}`)}`, `DESCRIPTION:${esc(lines.join('\n'))}`, 'END:VEVENT');
+    out.push(`LOCATION:${esc(`${first.leg.dep} → ${last.leg.arr}`)}`, `DESCRIPTION:${esc(withVersion(lines.join('\n')))}`, 'END:VEVENT');
     count++;
   }
 
@@ -100,6 +101,6 @@ export function buildFamilyIcs(days, airports, options = {}, nowMs = Date.now())
     allDay(`fam-day-${day.date}`, day.date, title, description);
   }
 
-  out.push('END:VCALENDAR');
-  return { text: out.map(fold).join('\r\n') + '\r\n', count };
+  const { emitted, cancelled } = finishCalendar(out, { previous, from, to, nowMs, seq, cancelledTitle: 'Annullato' });
+  return { text: out.map(fold).join('\r\n') + '\r\n', count, emitted, cancelled };
 }

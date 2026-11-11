@@ -1,5 +1,5 @@
 // "Altro": import, cronologia, export .ics, backup, impostazioni.
-import { h, fmtDayShort, fmtDayLong, fmtMonth } from './util.js';
+import { h, fmtDayShort, fmtDayLong, fmtMonth, safeStorage } from './util.js';
 import { state, actions, saveSettings, monthKeys, homeTravelMin } from './state.js';
 import { checkTotals } from '../src/parser.js';
 import { buildIcs } from '../src/ics.js';
@@ -83,6 +83,32 @@ function hubsCard(s) {
     h('p', { class: 'muted', style: 'font-size:13px;margin-top:8px' }, 'Se il primo volo parte da un hub, nel riquadro FDP la Cpt Discretion compare con l’avviso “da evitare”: lì ci sono riserve e stand-by (OMA 7.2.1).'));
 }
 
+// ---- export .ics: ricordo degli eventi già esportati (per aggiornarli e annullare quelli spariti)
+const icsStore = safeStorage();
+const icsKey = (format) => `dk3-ics-${format}`;
+function loadExported(format) {
+  try {
+    return JSON.parse(icsStore.getItem(icsKey(format)) ?? '{}');
+  } catch {
+    return {};
+  }
+}
+function saveExported(format, emitted) {
+  try {
+    icsStore.setItem(icsKey(format), JSON.stringify(emitted));
+  } catch {
+    // memoria piena o non disponibile: il prossimo export non potrà annullare i servizi spariti
+  }
+}
+// versione del roster esportato: l'import più recente che copre il periodo
+function rosterVersion(from, to) {
+  const imps = state.imports.filter((i) => (!to || i.roster.meta.periodStart <= to) && (!from || i.roster.meta.periodEnd >= from));
+  const p = imps.map((i) => i.roster.meta.printedAt).filter(Boolean).sort().at(-1);
+  if (!p) return null;
+  const [d, t] = p.split('T');
+  return { text: `Roster stampato il ${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)} alle ${t?.slice(0, 5) ?? ''}`, tag: `${d.slice(8, 10)}${d.slice(5, 7)}-${(t ?? '').slice(0, 5).replace(':', '')}` };
+}
+
 // ---- schermata Altro
 export function renderMore(view) {
   const imports = [...state.imports].sort((a, b) => b.importedAt.localeCompare(a.importedAt));
@@ -143,15 +169,26 @@ export function renderMore(view) {
         const days = [...state.data.days.values()].sort((a, b) => a.date.localeCompare(b.date));
         const range = { from: m ? `${m}-01` : null, to: m ? `${m}-31` : null };
         const fam = format.value === 'family';
-        const { text, count } = fam
-          ? buildFamilyIcs(days, state.data.airports, { base: state.data.pilot?.base ?? 'MXP', ...range, flightNumbers: fnum.checked })
-          : buildIcs(days, state.data.airports, { scope: scope.value, ...range, alarmMinutes: Number(alarm.value) });
-        if (!count) return actions.toast('Niente da esportare');
-        download(`${fam ? 'Turni-famiglia' : 'DK3-Roster'}${m ? '-' + m : ''}.ics`, text, 'text/calendar');
-        actions.toast(`${count} eventi pronti`);
+        const ver = rosterVersion(range.from, range.to);
+        const common = { ...range, version: ver?.text ?? '', previous: loadExported(format.value) };
+        const { text, count, emitted, cancelled } = fam
+          ? buildFamilyIcs(days, state.data.airports, { base: state.data.pilot?.base ?? 'MXP', ...common, flightNumbers: fnum.checked })
+          : buildIcs(days, state.data.airports, { scope: scope.value, ...common, alarmMinutes: Number(alarm.value) });
+        if (!count && !cancelled) return actions.toast('Niente da esportare');
+        download(`${fam ? 'Turni-famiglia' : 'DK3-Roster'}${m ? '-' + m : ''}${ver ? '-stampato-' + ver.tag : ''}.ics`, text, 'text/calendar');
+        saveExported(format.value, emitted);
+        actions.toast(`${count} eventi pronti${cancelled ? ` · ${cancelled} annullat${cancelled === 1 ? 'o' : 'i'}` : ''}`);
       } }, 'Esporta .ics'),
       note,
-      h('p', { class: 'muted', style: 'font-size:13px' }, 'Per metterlo nel Calendario: scegli “Mail” e invia il file a te stesso, apri l’allegato e tocca “Aggiungi tutti” scegliendo il calendario.')));
+      h('p', { class: 'muted', style: 'font-size:13px' }, 'Per metterlo nel Calendario: scegli “Mail” e invia il file a te stesso, apri l’allegato e tocca “Aggiungi tutti” scegliendo il calendario.'),
+      h('details', { class: 'howto' }, h('summary', {}, 'Aggiornare il calendario senza doppioni'),
+        h('p', {}, 'Un file .ics può aggiungere e aggiornare eventi, ma il Calendario non cancella mai da solo quelli vecchi. Il modo sicuro al 100% è un calendario dedicato ai turni, da rifare a ogni nuova versione:'),
+        h('ol', {},
+          h('li', {}, h('b', {}, 'La prima volta: '), 'crea un calendario nuovo solo per i turni (es. “Turni Luca”) e importa il file lì dentro.'),
+          h('li', {}, h('b', {}, 'A ogni nuova versione: '), 'cancella quel calendario (sparisce tutto il vecchio in un colpo), creane uno con lo stesso nome e importa il file nuovo.')),
+        h('p', {}, h('b', {}, 'iPhone: '), 'Calendario → Calendari → “Aggiungi calendario”; per cancellarlo: tocca la “i” accanto al nome → “Elimina calendario”. Aprendo il file .ics scegli quel calendario prima di “Aggiungi tutti”.'),
+        h('p', {}, h('b', {}, 'Google Calendar (dal computer): '), 'Impostazioni → “Aggiungi calendario” → “Crea nuovo calendario”; poi “Importa ed esporta” → scegli il file e il calendario dei turni. Per cancellarlo: Impostazioni del calendario → “Elimina”.'),
+        h('p', {}, 'Se non lo rifai, l’app aiuta comunque: ogni giorno ha il suo evento fisso (un giorno diventato libero diventa “OFF”), i servizi spariti arrivano come “Annullato” e in ogni evento c’è la data di stampa del roster. Apple Calendar di solito aggiorna gli eventi; Google spesso tiene la versione vecchia: lì serve il calendario dedicato.'))));
   }
 
   // partenza da casa

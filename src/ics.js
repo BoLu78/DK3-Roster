@@ -30,6 +30,42 @@ export function fold(line) {
 }
 
 // Rotta dai tratti: MXP-RMF-MXP (un aeroporto non si ripete se la tratta parte da dove è arrivata la precedente)
+// Chiude il calendario gestendo gli aggiornamenti.
+// Importare un .ics può aggiungere o aggiornare eventi (stesso UID, SEQUENCE più alta) ma non toglierli:
+// per i servizi spariti dal roster si ripete l'evento già esportato con STATUS:CANCELLED.
+// previous: { uid: { date, dt: [righe DTSTART/DTEND] } } dall'export precedente (stesso formato).
+// Restituisce la mappa degli eventi esportati ora, da salvare per il prossimo export.
+export function finishCalendar(out, { previous = {}, from = null, to = null, nowMs = Date.now(), seq = Math.floor(nowMs / 1000), cancelledTitle = 'Annullato · non più nel roster' } = {}) {
+  const emitted = {};
+  let cur = null;
+  for (const line of out) {
+    if (line === 'BEGIN:VEVENT') cur = { dt: [] };
+    else if (line === 'END:VEVENT' && cur) {
+      if (cur.uid) emitted[cur.uid] = { date: cur.date, dt: cur.dt };
+      cur = null;
+    } else if (cur && line.startsWith('UID:')) cur.uid = line.slice(4);
+    else if (cur && (line.startsWith('DTSTART') || line.startsWith('DTEND'))) {
+      cur.dt.push(line);
+      if (line.startsWith('DTSTART')) {
+        const v = line.split(':')[1];
+        cur.date = `${v.slice(0, 4)}-${v.slice(4, 6)}-${v.slice(6, 8)}`;
+      }
+    }
+  }
+  const inRange = (date) => (!from || date >= from) && (!to || date <= to);
+  let cancelled = 0;
+  for (const [uid, ev] of Object.entries(previous)) {
+    if (emitted[uid] || !ev?.dt?.length || !inRange(ev.date)) continue;
+    out.push('BEGIN:VEVENT', `UID:${uid}`, `DTSTAMP:${icsDate(nowMs)}`, `LAST-MODIFIED:${icsDate(nowMs)}`, `SEQUENCE:${seq}`,
+      'STATUS:CANCELLED', 'TRANSP:TRANSPARENT', `SUMMARY:${esc(cancelledTitle)}`, ...ev.dt, 'END:VEVENT');
+    cancelled++;
+  }
+  // l'export nuovo conosce anche gli eventi precedenti fuori dal periodo esportato
+  const keep = Object.fromEntries(Object.entries(previous).filter(([, ev]) => ev?.date && !inRange(ev.date)));
+  out.push('END:VCALENDAR');
+  return { emitted: { ...keep, ...emitted }, cancelled };
+}
+
 export function routeOfLegs(legs) {
   const l = legs.filter((x) => x.kind === 'flight' || x.kind === 'transport');
   if (!l.length) return '';
@@ -88,12 +124,13 @@ const isoDate = (ms) => new Date(ms).toISOString().slice(0, 10);
 // options.alarmMinutes: promemoria prima dell'inizio (0 = nessuno)
 // I servizi si ricostruiscono dal check-in al check-out anche se passano la mezzanotte.
 export function buildIcs(days, airports, options = {}, nowMs = Date.now()) {
-  const { scope = 'all', from = null, to = null, alarmMinutes = 0 } = options;
+  const { scope = 'all', from = null, to = null, alarmMinutes = 0, version = '', previous = {} } = options;
+  const seq = Math.floor(nowMs / 1000); // sempre crescente: l'evento nuovo vince su quello già nel calendario
   const out = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//DK3 Roster//IT', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:DK3 Roster'];
   let count = 0;
   const inRange = (date) => (!from || date >= from) && (!to || date <= to);
   const event = (uid, summary, location, description, startMs, endMs, allDayDate) => {
-    out.push('BEGIN:VEVENT', `UID:${uid}@dk3-roster`, `DTSTAMP:${icsDate(nowMs)}`);
+    out.push('BEGIN:VEVENT', `UID:${uid}@dk3-roster`, `DTSTAMP:${icsDate(nowMs)}`, `LAST-MODIFIED:${icsDate(nowMs)}`, `SEQUENCE:${seq}`);
     if (startMs != null && endMs != null && endMs > startMs) out.push(`DTSTART:${icsDate(startMs)}`, `DTEND:${icsDate(endMs)}`);
     else {
       const next = new Date(Date.parse(allDayDate + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10).replace(/-/g, '');
@@ -101,27 +138,44 @@ export function buildIcs(days, airports, options = {}, nowMs = Date.now()) {
     }
     out.push(`SUMMARY:${esc(summary)}`);
     if (location) out.push(`LOCATION:${esc(airports?.[location]?.name ? `${location} - ${airports[location].name}` : location)}`);
-    out.push(`DESCRIPTION:${esc(description)}`);
+    out.push(`DESCRIPTION:${esc([version, description].filter(Boolean).join('\n'))}`);
     if (alarmMinutes > 0 && startMs != null && endMs > startMs) out.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:Servizio', `TRIGGER:-PT${alarmMinutes}M`, 'END:VALARM');
     out.push('END:VEVENT');
     count++;
   };
 
+  // Un posto fisso per ogni giorno (UID = data + numero): se il turno cambia, l'evento di quel giorno
+  // si aggiorna invece di aggiungersene uno nuovo; un giorno che diventa libero diventa "OFF".
+  const slots = new Map(); // data -> eventi già messi quel giorno
+  const slotUid = (date) => {
+    const n = slots.get(date) ?? 0;
+    slots.set(date, n + 1);
+    return `d${date}-${n}`;
+  };
+  const dutyStart = new Set();
   for (const duty of buildDuties(days)) {
-    if (scope === 'flights' && duty.kind !== 'flight') continue;
     const date = isoDate(duty.startMs);
+    dutyStart.add(date);
+    if (scope === 'flights' && duty.kind !== 'flight') continue;
     if (!inRange(date)) continue;
     const loc = duty.ci?.airport ?? duty.legs[0]?.leg.dep;
-    event(`${duty.startMs}-${duty.kind}`, dutySummary(duty), loc, describeDuty(duty, airports, date), duty.startMs, duty.endMs, date);
+    event(slotUid(date), dutySummary(duty), loc, describeDuty(duty, airports, date), duty.startMs, duty.endMs, date);
   }
-  if (scope === 'all') {
-    for (const day of days) {
-      if (day.kind !== 'standby' || !inRange(day.date)) continue;
+  for (const day of [...days].filter((d) => !d.spill).sort((a, b) => a.date.localeCompare(b.date))) {
+    if (!inRange(day.date)) continue;
+    if (day.kind === 'standby' && scope === 'all') {
       const tl = buildDayTimeline(day);
       const name = day.code === 'RESERVE' ? 'Reserve' : 'Stand-by';
-      event(`${day.date}-standby`, name, day.airport, `${name}${day.airport ? ` ${day.airport}` : ''}${tl.window ? `\n${fmtUtc(tl.window.startMs)}Z - ${fmtUtc(tl.window.endMs)}Z` : ''}`, tl.window?.startMs, tl.window?.endMs, day.date);
+      event(slotUid(day.date), name, day.airport, `${name}${day.airport ? ` ${day.airport}` : ''}${tl.window ? `\n${fmtUtc(tl.window.startMs)}Z - ${fmtUtc(tl.window.endMs)}Z` : ''}`, tl.window?.startMs, tl.window?.endMs, day.date);
+      continue;
     }
+    if (slots.has(day.date) || dutyStart.has(day.date) && scope === 'all') continue;
+    // giorno senza servizi che iniziano: evento di tutto il giorno, così occupa il suo posto
+    const free = { off: 'OFF', vacation: 'Ferie', rest: `Riposo${day.hotel?.airport ? ` a ${day.hotel.airport}` : ''}` }[day.kind];
+    const title = free ?? (scope === 'flights' ? 'Nessun volo' : null);
+    if (!title) continue; // giorno dentro un servizio iniziato prima, o senza dati
+    event(slotUid(day.date), title, null, [title, day.hotel?.name].filter(Boolean).join('\n'), null, null, day.date);
   }
-  out.push('END:VCALENDAR');
-  return { text: out.map(fold).join('\r\n') + '\r\n', count };
+  const { emitted, cancelled } = finishCalendar(out, { previous, from, to, nowMs, seq });
+  return { text: out.map(fold).join('\r\n') + '\r\n', count, emitted, cancelled };
 }

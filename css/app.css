@@ -285,3 +285,5 @@ input[type=number] { width: 72px; text-align: right; }
 .fdp-row small.lastto { color: var(--text); font-size: 13px; margin-top: 2px; } .fdp-row small.lastto b { font-size: 14px; font-weight: 800; }
 .ftl-notes { margin: 8px 0 0; padding-left: 18px; font-size: 13px; } .ftl-notes li { margin: 4px 0; } 
 .list .more-link { display: block; width: 100%; text-align: center; color: var(--accent, #0a84ff); font-weight: 600; padding: 12px; background: none; border: 0; }
+.howto { margin-top: 10px; font-size: 13.5px; } .howto summary { font-weight: 700; color: var(--accent); padding: 6px 0; cursor: pointer; }
+.howto p, .howto li { margin: 6px 0; line-height: 1.4; } .howto ol { padding-left: 20px; margin: 6px 0; }
