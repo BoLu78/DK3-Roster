@@ -37,7 +37,7 @@ for (const file of pdfs) {
         for (const l of d.legs) {
           assert.match(l.depTime, /^\d{4}$/);
           assert.match(l.arrTime, /^\d{4}$/);
-          assert.ok(l.dep && l.arr && l.ac, `${d.date}: tratta incompleta`);
+          assert.ok(l.dep && l.arr && (l.ac || l.kind !== 'flight'), `${d.date}: tratta incompleta`); // un bus non ha AC
           // l'equipaggio non c'è sempre nel PDF (es. voli da BLQ): se c'è, deve essere completo
           // sui voli per altre compagnie (IZ, BY...) il PDF elenca solo i Neos a bordo
           // (un ferry può non avere cabina)

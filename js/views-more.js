@@ -58,6 +58,31 @@ export function showImportSheet(imp, { fresh = false } = {}) {
       fresh ? null : h('button', { class: 'btn danger', onclick: async () => { if (confirm('Eliminare questo import? I giorni tornano alla versione precedente.')) { await deleteImport(imp.id); actions.closeSheet(); await actions.refresh(); actions.toast('Import eliminato'); } } }, 'Elimina questo import')));
 }
 
+// Hub della compagnia: partendo da qui la Cpt Discretion è da evitare (OMA 7.2.1)
+const HUB_DEFAULT = ['MXP', 'VRN', 'FCO'];
+function hubsCard(s) {
+  const hubs = new Set(s.hubs ?? HUB_DEFAULT);
+  const extra = [...hubs].filter((x) => !HUB_DEFAULT.includes(x));
+  const save = (list) => {
+    s.hubs = [...new Set(list)];
+    saveSettings();
+    actions.ftlChanged();
+  };
+  const boxes = HUB_DEFAULT.map((code) => {
+    const cb = h('input', { type: 'checkbox', checked: hubs.has(code) });
+    cb.addEventListener('change', () => save([...HUB_DEFAULT.filter((c) => c === code ? cb.checked : hubs.has(c)), ...extra]));
+    return h('label', { class: 'field' }, h('span', {}, { MXP: 'MXP Malpensa', VRN: 'VRN Verona', FCO: 'FCO Fiumicino' }[code]), cb);
+  });
+  const other = h('input', { type: 'text', value: extra.join(', '), placeholder: 'es. NAP', autocapitalize: 'characters', style: 'width:8em' });
+  other.addEventListener('change', () => {
+    const list = other.value.toUpperCase().split(/[^A-Z]+/).filter((x) => /^[A-Z]{3}$/.test(x));
+    save([...HUB_DEFAULT.filter((c) => hubs.has(c)), ...list]);
+  });
+  return h('div', { class: 'card' }, h('h2', {}, 'Hub (Cpt Discretion)'), boxes,
+    h('label', { class: 'field' }, h('span', {}, 'Altri hub'), other),
+    h('p', { class: 'muted', style: 'font-size:13px;margin-top:8px' }, 'Se il primo volo parte da un hub, nel riquadro FDP la Cpt Discretion compare con l’avviso “da evitare”: lì ci sono riserve e stand-by (OMA 7.2.1).'));
+}
+
 // ---- schermata Altro
 export function renderMore(view) {
   const imports = [...state.imports].sort((a, b) => b.importedAt.localeCompare(a.importedAt));
@@ -74,12 +99,14 @@ export function renderMore(view) {
       h('button', { class: 'btn secondary', style: 'margin-top:8px', onclick: async () => { await markAllSeen(); await actions.refresh(); actions.toast('Pallini tolti'); } }, 'Togli tutti i pallini')));
   }
   if (imports.length) {
-    parts.push(h('div', { class: 'card list' }, h('h2', {}, 'Cronologia import'), imports.map((imp) => {
+    // si vedono gli ultimi 2 import; gli altri restano salvati (contengono i mesi precedenti)
+    const shown = view.allImports ? imports : imports.slice(0, 2);
+    parts.push(h('div', { class: 'card list' }, h('h2', {}, 'Cronologia import'), shown.map((imp) => {
       const r = imp.roster;
       return h('button', { onclick: () => showImportSheet(imp) },
         h('span', {}, h('b', {}, `${fmtDayShort(r.meta.periodStart)} – ${fmtDayShort(r.meta.periodEnd)}`), h('div', { class: 'muted', style: 'font-size:13px' }, `Stampato ${r.meta.printedAt?.replace('T', ' ') ?? '—'}${imp.changes ? ` · ${imp.changes.count} modifiche${imp.seen ? '' : ' 🔄'}` : ''}`)),
         h('span', { class: 'chev' }, '›'));
-    })));
+    }), imports.length > 2 ? h('button', { class: 'more-link', onclick: () => { view.allImports = !view.allImports; actions.refresh(); } }, view.allImports ? 'Mostra solo gli ultimi 2' : `Mostra tutti (${imports.length})`) : null));
   }
 
   // export .ics (un'unica scheda: formato completo oppure semplice per la famiglia)
@@ -169,6 +196,7 @@ export function renderMore(view) {
     actions.refresh();
   };
   [warn, crit, inc].forEach((e) => e.addEventListener('change', apply));
+  parts.push(hubsCard(s));
   parts.push(h('div', { class: 'card' }, h('h2', {}, 'Avvisi scadenze'),
     h('label', { class: 'field' }, h('span', {}, 'Avviso (giorni prima)'), warn), h('label', { class: 'field' }, h('span', {}, 'Urgente (giorni prima)'), crit),
     h('label', { class: 'field' }, h('span', {}, 'Conta anche le scadenze B787'), inc)));

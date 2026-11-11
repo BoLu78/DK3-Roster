@@ -85,7 +85,26 @@ function fdpCard(d, day) {
   const limitRow = (label, limit, note) => h('div', { class: 'fdp-row' },
     h('span', {}, label, h('small', {}, `Block-in entro ${fmtUtc(f.startMs + limit * 60000)}Z${note ? ` · ${note}` : ''}`), lastTakeoff(limit)),
     h('b', {}, `${fmtHM(limit)} h`));
+  // ultimo sblocco dal primo aeroporto: ritardo dopo la presentazione, voli e soste come da schedulato
+  // (giallo = rispetta il massimo, rosso = rispetta la Cpt Discretion)
+  const latestOffBlock = (limit, cls, label, note) => {
+    if (limit == null || f.firstDepMs == null || f.schedSpanMin == null) return null;
+    const ms = f.startMs + (limit - f.schedSpanMin) * 60000;
+    const delay = Math.round((ms - f.firstDepMs) / 60000);
+    const t = times(ms, f.firstDepApt, day.date);
+    return h('div', { class: `offblock ${cls}` },
+      h('span', {}, label, h('small', {}, delay >= 0 ? `ritardo massimo ${fmtHM(delay)}` : `già oltre di ${fmtHM(-delay)} con lo schedulato`), note ? h('small', {}, note) : null),
+      h('b', {}, utcText(t), t.loc ? h('small', {}, locText(t)) : null));
+  };
+  const offBlock = f.firstDepMs != null
+    ? h('div', { class: 'offblocks' },
+        h('div', { class: 'offblocks-title' }, `Ultimo sblocco da ${f.firstDepApt}`),
+        latestOffBlock(limitMin, 'max', 'Massimo', null),
+        latestOffBlock(L.discretion, 'disc', 'Cpt Discretion', f.firstDepAtHub ? `Da evitare a ${f.firstDepApt}: base/hub con riserve e stand-by (OMA 7.2.1)` : null),
+        h('small', { class: 'muted' }, 'Per ritardi dopo la presentazione (se ti avvisano prima vale il delayed reporting, OMA 7.2.2).'))
+    : null;
   const rows = [
+    offBlock,
     h('div', { class: 'fdp-row' }, h('span', {}, 'Effettivo', h('small', {}, utcRange(f.startMs, f.min))), h('b', {}, `${fmtHM(f.min)} h`)),
     limitMin != null ? limitRow('Massimo', limitMin, kindTxt) : h('div', { class: 'fdp-row' }, h('span', {}, 'Massimo'), h('b', {}, 'n.d.')),
     L.discretion != null ? limitRow('Cpt Discretion', L.discretion, null) : null,

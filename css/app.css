@@ -274,5 +274,14 @@ input[type=number] { width: 72px; text-align: right; }
 .pill.extpill { background: color-mix(in srgb, var(--ext) 14%, transparent); color: var(--ext); margin-left: 6px; letter-spacing: .05em; }
 .chip.ext { background: color-mix(in srgb, var(--ext) 14%, transparent); color: var(--ext); }
 .wk .dn.ext { box-shadow: inset 0 -2px 0 var(--ext); }
+.offblocks { display: grid; gap: 6px; margin: 4px 0 10px; }
+.offblocks-title { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+.offblocks > small { font-size: 12px; }
+.offblock { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 12px; border-left: 5px solid; font-variant-numeric: tabular-nums; }
+.offblock span { font-weight: 700; } .offblock span small { display: block; font-weight: 400; color: var(--muted); font-size: 12.5px; }
+.offblock b { font-size: 20px; font-weight: 800; text-align: right; white-space: nowrap; } .offblock b small { display: block; font-size: 13px; font-weight: 600; color: var(--muted); }
+.offblock.max { border-color: #e6b800; background: color-mix(in srgb, #ffcc00 18%, transparent); }
+.offblock.disc { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 13%, transparent); }
 .fdp-row small.lastto { color: var(--text); font-size: 13px; margin-top: 2px; } .fdp-row small.lastto b { font-size: 14px; font-weight: 800; }
 .ftl-notes { margin: 8px 0 0; padding-left: 18px; font-size: 13px; } .ftl-notes li { margin: 4px 0; } 
+.list .more-link { display: block; width: 100%; text-align: center; color: var(--accent, #0a84ff); font-weight: 600; padding: 12px; background: none; border: 0; }

@@ -37,7 +37,7 @@ function computeFtl() {
     state.tails = new Map();
   }
   try {
-    state.ftl = analyze([...state.data.days.values()], { base: state.data.pilot?.base ?? 'MXP', airports: state.data.airports, crewByDuty: state.settings.ftlCrew ?? {} });
+    state.ftl = analyze([...state.data.days.values()], { base: state.data.pilot?.base ?? 'MXP', airports: state.data.airports, crewByDuty: state.settings.ftlCrew ?? {}, hubs: state.settings.hubs ?? ['MXP', 'VRN', 'FCO'] });
   } catch (e) {
     console.error('Controllo FTL non riuscito', e);
     state.ftl = null;

@@ -157,7 +157,13 @@ function analyzeDuty(duty, trip, ctx, crew, extFlag = false) {
   const fdpMin = Math.round((fdpEndMs - startMs) / MIN);
   const sectors = flights.length;
   const lastLeg = flights.at(-1);
-  out.fdp = { startMs, endMs: fdpEndMs, min: fdpMin, sectors, lastDepMs: lastLeg.depMs, lastDepApt: lastLeg.leg.dep, lastBlockMin: Math.round((lastLeg.arrMs - lastLeg.depMs) / MIN) };
+  const firstLeg = flights[0];
+  out.fdp = {
+    startMs, endMs: fdpEndMs, min: fdpMin, sectors, lastDepMs: lastLeg.depMs, lastDepApt: lastLeg.leg.dep, lastBlockMin: Math.round((lastLeg.arrMs - lastLeg.depMs) / MIN),
+    // primo sblocco e durata programmata dal primo off-block all'ultimo block-in (voli e soste come da schedulato)
+    firstDepMs: firstLeg.depMs, firstDepApt: firstLeg.leg.dep, schedSpanMin: Math.round((lastLeg.arrMs - firstLeg.depMs) / MIN),
+    firstDepAtHub: (ctx.hubs ?? new Set([ctx.base])).has(firstLeg.leg.dep),
+  };
 
   // ---- acclimatazione (OMA 7.1.4)
   const diff = Math.abs(ctx.offset(startMs, ciApt) - ctx.offset(startMs, ctx.base));
@@ -341,8 +347,9 @@ export const LIMITS = { duty7: 3600, duty14: 6600, duty28: 11400, dutyYear: 1200
 // ---------------------------------------------------------------- analisi completa
 // days: tutti i giorni (ordinati). options: { base, airports, crewByDuty: {key: 2|3|4} }
 export function analyze(days, options) {
-  const { base = 'MXP', airports = {}, crewByDuty = {} } = options;
+  const { base = 'MXP', airports = {}, crewByDuty = {}, hubs = [] } = options;
   const ctx = makeCtx(base, airports);
+  ctx.hubs = new Set([base, ...hubs]); // home base e hub della compagnia (OMA 7.2.1: discrezione da evitare)
   const sorted = [...days].sort((a, b) => a.date.localeCompare(b.date));
   const trips = buildTrips(sorted, base);
   const tripOf = new Map();
