@@ -4,6 +4,7 @@
 // date: nessun dato del roster, nessun nome, nessun identificativo.
 import { coordsFor } from './airports-geo.js';
 import { buildDayTimeline } from './timeline.js';
+import { tr } from './i18n.js';
 
 export const FORECAST_DAYS = 15; // Open-Meteo prevede fino a ~16 giorni
 export const STALE_HOURS = 3; // dopo quante ore si riscaricano le previsioni
@@ -15,16 +16,16 @@ const isoDay = (ms) => new Date(ms).toISOString().slice(0, 10);
 // Codici meteo WMO -> gruppo, icona e testo
 export function describeCode(code, gustKt = 0) {
   let group, icon, label;
-  if (code === 0) [group, icon, label] = ['clear', '☀️', 'Sereno'];
-  else if (code === 1) [group, icon, label] = ['clear', '🌤️', 'Quasi sereno'];
-  else if (code === 2) [group, icon, label] = ['partly', '⛅', 'Parzialmente nuvoloso'];
-  else if (code === 3) [group, icon, label] = ['cloudy', '☁️', 'Nuvoloso'];
-  else if (code === 45 || code === 48) [group, icon, label] = ['fog', '🌫️', 'Nebbia'];
-  else if ((code >= 51 && code <= 57) || (code >= 80 && code <= 82)) [group, icon, label] = ['rain', '🌦️', 'Pioggia debole / rovesci'];
-  else if (code >= 61 && code <= 67) [group, icon, label] = ['rain', '🌧️', 'Pioggia'];
-  else if ((code >= 71 && code <= 77) || code === 85 || code === 86) [group, icon, label] = ['snow', '🌨️', 'Neve'];
-  else if (code >= 95) [group, icon, label] = ['storm', '⛈️', 'Temporale'];
-  else [group, icon, label] = ['cloudy', '☁️', 'Variabile'];
+  if (code === 0) [group, icon, label] = ['clear', '☀️', tr('Sereno', 'Clear')];
+  else if (code === 1) [group, icon, label] = ['clear', '🌤️', tr('Quasi sereno', 'Mostly clear')];
+  else if (code === 2) [group, icon, label] = ['partly', '⛅', tr('Parzialmente nuvoloso', 'Partly cloudy')];
+  else if (code === 3) [group, icon, label] = ['cloudy', '☁️', tr('Nuvoloso', 'Cloudy')];
+  else if (code === 45 || code === 48) [group, icon, label] = ['fog', '🌫️', tr('Nebbia', 'Fog')];
+  else if ((code >= 51 && code <= 57) || (code >= 80 && code <= 82)) [group, icon, label] = ['rain', '🌦️', tr('Pioggia debole / rovesci', 'Light rain / showers')];
+  else if (code >= 61 && code <= 67) [group, icon, label] = ['rain', '🌧️', tr('Pioggia', 'Rain')];
+  else if ((code >= 71 && code <= 77) || code === 85 || code === 86) [group, icon, label] = ['snow', '🌨️', tr('Neve', 'Snow')];
+  else if (code >= 95) [group, icon, label] = ['storm', '⛈️', tr('Temporale', 'Thunderstorm')];
+  else [group, icon, label] = ['cloudy', '☁️', tr('Variabile', 'Variable')];
   return { group, icon, label, windy: gustKt >= WINDY_KT };
 }
 

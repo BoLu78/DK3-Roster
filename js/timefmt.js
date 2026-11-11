@@ -2,6 +2,7 @@
 import { h } from './util.js';
 import { fmtUtc, localTime } from '../src/timeline.js';
 import { state } from './state.js';
+import { tr } from '../src/i18n.js';
 
 const sign = (n) => (n > 0 ? `+${n}` : `${n}`);
 
@@ -24,5 +25,5 @@ export function locText(t) {
 // elemento con UTC in evidenza e locale in grigio
 export function timeEl(t, cls = '') {
   if (!t) return h('span', {}, '—');
-  return h('span', { class: cls }, h('b', {}, t.utc + 'Z'), t.utcDelta ? h('span', { class: 'sup' }, sign(t.utcDelta)) : null, t.loc ? h('span', { class: 'loc' }, ` ${t.loc}`) : h('span', { class: 'loc' }, ' (fuso n.d.)'), t.loc && t.locDelta ? h('span', { class: 'sup' }, sign(t.locDelta)) : null);
+  return h('span', { class: cls }, h('b', {}, t.utc + 'Z'), t.utcDelta ? h('span', { class: 'sup' }, sign(t.utcDelta)) : null, t.loc ? h('span', { class: 'loc' }, ` ${t.loc}`) : h('span', { class: 'loc' }, tr(' (fuso n.d.)', ' (time zone n/a)')), t.loc && t.locDelta ? h('span', { class: 'sup' }, sign(t.locDelta)) : null);
 }

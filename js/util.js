@@ -1,4 +1,5 @@
-// Piccoli strumenti comuni: creazione elementi, date in italiano, etichette.
+// Piccoli strumenti comuni: creazione elementi, date nella lingua scelta, etichette.
+import { tr, dowShort, dowLong, monthName, monthShort } from '../src/i18n.js';
 
 export function h(tag, props, ...kids) {
   const el = tag === 'svg' ? document.createElementNS('http://www.w3.org/2000/svg', 'svg') : document.createElement(tag);
@@ -19,24 +20,23 @@ export function h(tag, props, ...kids) {
   return el;
 }
 
-export const DOW_SHORT = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
-export const DOW_LONG = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
-export const MONTHS_IT = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
-export const MONTHS_SHORT = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
+// nomi di giorni e mesi nella lingua scelta (src/i18n.js)
+export const dowName = (iso) => dowShort(new Date(iso + 'T00:00:00Z').getUTCDay());
 
 const dateOf = (iso) => new Date(iso + 'T00:00:00Z');
 export const dowOf = (iso) => dateOf(iso).getUTCDay();
 export const fmtDayLong = (iso) => {
   const d = dateOf(iso);
-  return `${DOW_LONG[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS_IT[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+  return `${dowLong(d.getUTCDay())} ${d.getUTCDate()} ${monthName(d.getUTCMonth())} ${d.getUTCFullYear()}`;
 };
 export const fmtDayShort = (iso) => {
   const d = dateOf(iso);
-  return `${d.getUTCDate()} ${MONTHS_SHORT[d.getUTCMonth()]}`;
+  return `${d.getUTCDate()} ${monthShort(d.getUTCMonth())}`;
 };
 export const fmtMonth = (key) => {
   const [y, m] = key.split('-').map(Number);
-  return `${MONTHS_IT[m - 1][0].toUpperCase()}${MONTHS_IT[m - 1].slice(1)} ${y}`;
+  const n = monthName(m - 1);
+  return `${n[0].toUpperCase()}${n.slice(1)} ${y}`;
 };
 
 export function todayIso() {
@@ -71,17 +71,19 @@ export function titleCase(s) {
   return (s ?? '').toLowerCase().replace(/(^|[\s(-])(\p{L})/gu, (_, a, b) => a + b.toUpperCase());
 }
 
+// tipi di giornata: l'etichetta si legge al momento, nella lingua scelta
+const kind = (cls, it, en) => ({ cls, get label() { return tr(it, en); } });
 export const KINDS = {
-  flight: { label: 'Volo', cls: 'k-flight' },
-  transport: { label: 'Trasferimento', cls: 'k-transport' },
-  standby: { label: 'Stand-by', cls: 'k-standby' },
-  sim: { label: 'Simulatore', cls: 'k-sim' },
-  ground: { label: 'Attività a terra', cls: 'k-sim' },
-  off: { label: 'OFF', cls: 'k-off' },
-  vacation: { label: 'Ferie', cls: 'k-vac' },
-  rest: { label: 'Giorno X (nessun servizio)', cls: 'k-off' },
-  blank: { label: 'Nessun servizio', cls: 'k-blank' },
-  other: { label: 'Altro', cls: 'k-blank' },
+  flight: kind('k-flight', 'Volo', 'Flight'),
+  transport: kind('k-transport', 'Trasferimento', 'Positioning'),
+  standby: kind('k-standby', 'Stand-by', 'Standby'),
+  sim: kind('k-sim', 'Simulatore', 'Simulator'),
+  ground: kind('k-sim', 'Attività a terra', 'Ground duty'),
+  off: kind('k-off', 'OFF', 'OFF'),
+  vacation: kind('k-vac', 'Ferie', 'Leave'),
+  rest: kind('k-off', 'Giorno X (nessun servizio)', 'Day X (no duty)'),
+  blank: kind('k-blank', 'Nessun servizio', 'No duty'),
+  other: kind('k-blank', 'Altro', 'Other'),
 };
 
 export function kindOf(day) {

@@ -14,6 +14,7 @@ import { renderMore, showImportSheet, restoreBackup } from './views-more.js';
 import { renderMap } from './views-map.js';
 import { loadWeather, refreshWeather } from './weather-ui.js';
 import { showDetail } from './views-detail.js';
+import { tr } from '../src/i18n.js';
 
 const $ = (id) => document.getElementById(id);
 const view = $('view');
@@ -26,7 +27,7 @@ const ICONS = {
   exp: '<circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3.2 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
   more: '<circle cx="5" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="19" cy="12" r="1.8" fill="currentColor"/>',
 };
-const TABS = [['list', 'Turni'], ['cal', 'Calendario'], ['map', 'Mappa'], ['stats', 'Statistiche'], ['exp', 'Scadenze'], ['more', 'Altro']];
+const TABS = () => [['list', tr('Turni', 'Roster')], ['cal', tr('Calendario', 'Calendar')], ['map', tr('Mappa', 'Map')], ['stats', tr('Statistiche', 'Stats')], ['exp', tr('Scadenze', 'Expiry')], ['more', tr('Altro', 'More')]];
 
 // ---------------------------------------------------------------- dati
 function computeFtl() {
@@ -64,7 +65,8 @@ async function load() {
 // ---------------------------------------------------------------- interfaccia
 function renderTabs() {
   const n = alertCount();
-  $('tabs').replaceChildren(...TABS.map(([id, label]) => h('button', { 'aria-current': state.tab === id ? 'page' : null, onclick: () => actions.go(id) },
+  $('tabs').setAttribute('aria-label', tr('Sezioni', 'Sections'));
+  $('tabs').replaceChildren(...TABS().map(([id, label]) => h('button', { 'aria-current': state.tab === id ? 'page' : null, onclick: () => actions.go(id) },
     h('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true', html: ICONS[id] }), label, id === 'exp' && n ? h('span', { class: 'badge' }, n) : null)));
 }
 
@@ -75,19 +77,19 @@ function renderTop() {
     const keys = monthKeys();
     const i = keys.indexOf(state.month);
     top.replaceChildren(
-      h('button', { class: 'nav', disabled: i <= 0, onclick: () => { monthStep(-1); render(); }, 'aria-label': 'Mese precedente' }, '‹'),
+      h('button', { class: 'nav', disabled: i <= 0, onclick: () => { monthStep(-1); render(); }, 'aria-label': tr('Mese precedente', 'Previous month') }, '‹'),
       h('h1', {}, fmtMonth(state.month)),
-      h('button', { class: 'nav', disabled: i >= keys.length - 1, onclick: () => { monthStep(1); render(); }, 'aria-label': 'Mese successivo' }, '›'),
-      keys.includes(todayIso().slice(0, 7)) && state.month !== todayIso().slice(0, 7) ? h('button', { class: 'action', onclick: () => { state.month = todayIso().slice(0, 7); render(); } }, 'Oggi') : h('button', { class: 'action', onclick: () => actions.pickPdf(), 'aria-label': 'Importa PDF' }, '＋ PDF'));
+      h('button', { class: 'nav', disabled: i >= keys.length - 1, onclick: () => { monthStep(1); render(); }, 'aria-label': tr('Mese successivo', 'Next month') }, '›'),
+      keys.includes(todayIso().slice(0, 7)) && state.month !== todayIso().slice(0, 7) ? h('button', { class: 'action', onclick: () => { state.month = todayIso().slice(0, 7); render(); } }, tr('Oggi', 'Today')) : h('button', { class: 'action', onclick: () => actions.pickPdf(), 'aria-label': tr('Importa PDF', 'Import PDF') }, '＋ PDF'));
   } else {
-    top.replaceChildren(h('h1', {}, { exp: 'Scadenze', more: 'Altro' }[state.tab] ?? 'DK3 Roster'));
+    top.replaceChildren(h('h1', {}, { exp: tr('Scadenze', 'Expiry'), more: tr('Altro', 'More') }[state.tab] ?? 'DK3 Roster'));
   }
 }
 
 function emptyState() {
   return h('div', { class: 'empty-state' }, h('div', { class: 'ico' }, '✈️'), h('h2', {}, 'DK3 Roster'),
-    h('p', {}, 'Importa il PDF “Individual duty plan” esportato da NetLine/Crew. La lettura avviene sul tuo telefono: i turni non vengono inviati da nessuna parte.'),
-    h('button', { class: 'btn', onclick: () => actions.pickPdf() }, 'Importa PDF'));
+    h('p', {}, tr('Importa il PDF “Individual duty plan” esportato da NetLine/Crew. La lettura avviene sul tuo telefono: i turni non vengono inviati da nessuna parte.', 'Import the “Individual duty plan” PDF exported from NetLine/Crew. It is read on your phone: your roster is never sent anywhere.')),
+    h('button', { class: 'btn', onclick: () => actions.pickPdf() }, tr('Importa PDF', 'Import PDF')));
 }
 
 function render() {
@@ -138,7 +140,7 @@ function busy(msg) {
 }
 
 export async function importBuffer(buffer, fileName) {
-  busy('Leggo il PDF…');
+  busy(tr('Leggo il PDF…', 'Reading the PDF…'));
   try {
     const { record } = await readRoster(buffer, state.imports, fileName);
     record.id = await addImport(record);
@@ -149,7 +151,7 @@ export async function importBuffer(buffer, fileName) {
     showImportSheet(state.imports.find((i) => i.id === record.id), { fresh: true });
   } catch (e) {
     $('toast').hidden = true;
-    const msg = e instanceof ImportError ? e.message : `Errore durante l'import: ${e?.message ?? e}`;
+    const msg = e instanceof ImportError ? e.message : tr(`Errore durante l'import: ${e?.message ?? e}`, `Import error: ${e?.message ?? e}`);
     if (!(e instanceof ImportError)) console.error(e);
     alert(msg);
   }
@@ -167,7 +169,7 @@ $('restore').addEventListener('change', async (ev) => {
   try {
     if (await restoreBackup(f)) {
       await actions.refresh();
-      actions.toast('Backup ripristinato');
+      actions.toast(tr('Backup ripristinato', 'Backup restored'));
     }
   } catch (e) {
     alert(e.message ?? String(e));
@@ -207,7 +209,7 @@ try {
   await load();
 } catch (e) {
   console.error(e);
-  actions.toast('Archivio non disponibile: i dati non verranno salvati');
+  actions.toast(tr('Archivio non disponibile: i dati non verranno salvati', 'Storage not available: data will not be saved'));
 }
 render();
 updateWeather();

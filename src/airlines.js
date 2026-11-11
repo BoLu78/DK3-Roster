@@ -1,6 +1,7 @@
 // Codice compagnia (IATA, 2 caratteri) -> nome.
 // Serve a riconoscere i voli non Neos (wet lease, ACMI) e i positioning (DH)
 // su altre compagnie. Se un codice manca, l'app mostra solo il codice.
+import { tr } from './i18n.js';
 
 export const HOME_AIRLINE = 'NO';
 
@@ -36,7 +37,7 @@ export function airlineLabel(code) {
 // Nota per le tratte su altre compagnie; null per i voli Neos e le altre attività
 export function airlineNote(leg) {
   if (!leg?.airline || leg.airline === HOME_AIRLINE) return null;
-  if (leg.kind === 'flight') return `Volo per ${airlineLabel(leg.airline)}`;
-  if (leg.kind === 'transport') return `Positioning con ${airlineLabel(leg.airline)}`;
+  if (leg.kind === 'flight') return `${tr('Volo per', 'Flight for')} ${airlineLabel(leg.airline)}`;
+  if (leg.kind === 'transport') return `${tr('Positioning con', 'Positioning with')} ${airlineLabel(leg.airline)}`;
   return null;
 }

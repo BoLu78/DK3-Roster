@@ -1,5 +1,6 @@
 // Stato condiviso dell'app e collegamenti tra le schermate.
 import { safeStorage } from './util.js';
+import { setLang } from '../src/i18n.js';
 import { DEFAULT_THRESHOLDS } from '../src/recurrent.js';
 
 const storage = safeStorage();
@@ -21,12 +22,15 @@ export const state = {
 export const actions = { ftlChanged() {}, go() {}, openDay() {}, closeSheet() {}, refresh() {}, toast() {}, pickPdf() {}, showImportResult() {} };
 
 function loadSettings() {
-  const base = { warn: DEFAULT_THRESHOLDS.warn, critical: DEFAULT_THRESHOLDS.critical, include787: false, icsScope: 'all', icsAlarm: 0, statsUntil: 'auto', ftlCrew: {}, homeTravelMin: 90, weatherOn: false, familyFlightNumbers: true, icsFormat: 'full', hubs: ['MXP', 'VRN', 'FCO'] };
+  const base = { warn: DEFAULT_THRESHOLDS.warn, critical: DEFAULT_THRESHOLDS.critical, include787: false, icsScope: 'all', icsAlarm: 0, statsUntil: 'auto', ftlCrew: {}, homeTravelMin: 90, weatherOn: false, familyFlightNumbers: true, icsFormat: 'full', hubs: ['MXP', 'VRN', 'FCO'], lang: 'it' };
+  let s = base;
   try {
-    return { ...base, ...JSON.parse(storage.getItem(SETTINGS_KEY) ?? '{}') };
+    s = { ...base, ...JSON.parse(storage.getItem(SETTINGS_KEY) ?? '{}') };
   } catch {
-    return base;
+    // impostazioni illeggibili: si riparte da quelle predefinite
   }
+  setLang(s.lang);
+  return s;
 }
 
 export function saveSettings() {

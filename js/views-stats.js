@@ -5,6 +5,7 @@ import { monthSummary, rolling, LIMITS } from '../src/stats.js';
 import { checkTotals } from '../src/parser.js';
 import { fmtHM as hmm } from '../src/ftl.js';
 import { actions } from './state.js';
+import { tr } from '../src/i18n.js';
 
 function meter(value, limit) {
   const pct = Math.min(100, (value / limit) * 100);
@@ -35,19 +36,19 @@ export function renderStats(view) {
       const c = ftl.cumulative[k];
       return h('div', { style: 'margin:8px 0' }, h('div', { class: 'row spread' }, h('span', {}, label), h('span', {}, h('b', {}, hmm(c.min)), h('span', { class: 'muted' }, ` / ${hmm(c.limit)}`))), meter(c.min, c.limit));
     };
-    parts.push(h('div', { class: 'card' }, h('h2', {}, 'Controllo FTL (OMA-A cap. 7)'),
-      h('div', { style: 'margin-bottom:6px' }, mine.length ? h('b', { class: bad ? 'bad' : '', style: bad ? '' : 'color:var(--warn)' }, `${bad} da correggere · ${mine.length - bad} da osservare`) : h('b', { class: 'ok' }, 'Nessun problema trovato'), h('span', { class: 'muted' }, ' in questo mese')),
+    parts.push(h('div', { class: 'card' }, h('h2', {}, tr('Controllo FTL (OMA-A cap. 7)', 'FTL check (OM-A ch. 7)')),
+      h('div', { style: 'margin-bottom:6px' }, mine.length ? h('b', { class: bad ? 'bad' : '', style: bad ? '' : 'color:var(--warn)' }, tr(`${bad} da correggere · ${mine.length - bad} da osservare`, `${bad} to fix · ${mine.length - bad} to watch`)) : h('b', { class: 'ok' }, tr('Nessun problema trovato', 'No issues found')), h('span', { class: 'muted' }, tr(' in questo mese', ' this month'))),
       mine.map((i) => h('button', { class: `issue ${i.severity}`, onclick: () => actions.openDay(i.date) }, h('span', { class: 'dot' }), h('span', {}, i.text, h('small', {}, i.date.split('-').reverse().join('/'))))),
-      free ? h('div', { class: 'cmp' }, h('span', {}, 'Giorni liberi (minimo 7 al mese)'), h('b', { class: free.free >= 7 ? 'ok' : 'bad' }, `${free.free}`)) : null,
-      h('div', { style: 'margin-top:10px' }, peak('duty7', 'Duty 7 giorni (picco)'), peak('duty14', 'Duty 14 giorni (picco)'), peak('duty28', 'Duty 28 giorni (picco)')),
-      h('p', { class: 'muted', style: 'font-size:12px;margin-top:8px' }, 'Il duty è dal check-in al check-out (stand-by al 25%, reserve esclusa). Il controllo copre i PDF importati e non sostituisce il manuale.')));
+      free ? h('div', { class: 'cmp' }, h('span', {}, tr('Giorni liberi (minimo 7 al mese)', 'Days off (minimum 7 per month)')), h('b', { class: free.free >= 7 ? 'ok' : 'bad' }, `${free.free}`)) : null,
+      h('div', { style: 'margin-top:10px' }, peak('duty7', tr('Duty 7 giorni (picco)', 'Duty 7 days (peak)')), peak('duty14', tr('Duty 14 giorni (picco)', 'Duty 14 days (peak)')), peak('duty28', tr('Duty 28 giorni (picco)', 'Duty 28 days (peak)'))),
+      h('p', { class: 'muted', style: 'font-size:12px;margin-top:8px' }, tr('Il duty è dal check-in al check-out (stand-by al 25%, reserve esclusa). Il controllo copre i PDF importati e non sostituisce il manuale.', 'Duty runs from check-in to check-out (standby at 25%, reserve excluded). The check covers the imported PDFs and does not replace the manual.'))));
   }
-  parts.push(h('div', { class: 'card' }, h('h2', {}, `Mese · ${fmtMonth(key)}`),
+  parts.push(h('div', { class: 'card' }, h('h2', {}, `${tr('Mese', 'Month')} · ${fmtMonth(key)}`),
     h('div', { class: 'row spread' },
       h('div', {}, h('div', { class: 'big-num' }, mmToHm(s.ft)), h('small', {}, 'Flight time (FT)')),
       h('div', { style: 'text-align:right' }, h('div', { class: 'big-num' }, mmToHm(s.dt)), h('small', {}, 'Duty time (DT)'))),
     h('div', { style: 'margin-top:12px' },
-      [['Giorni di volo', s.flightDays], ['Settori', s.sectors], ['Notti in hotel', s.nights], ['Trasferimenti', s.transportDays], ['Stand-by', s.standbyDays], ['Reserve', s.reserveDays], ['Simulatore', `${s.simDays}${s.simFt ? ` (${mmToHm(s.simFt)} SIM FT)` : ''}`], ['Attività a terra', s.groundDays], ['Riposi', s.offDays], ['Ferie', s.vacDays], ['Giorni X', s.restDays]]
+      [[tr('Giorni di volo', 'Flight days'), s.flightDays], [tr('Settori', 'Sectors'), s.sectors], [tr('Notti in hotel', 'Hotel nights'), s.nights], [tr('Trasferimenti', 'Positioning'), s.transportDays], ['Stand-by', s.standbyDays], ['Reserve', s.reserveDays], [tr('Simulatore', 'Simulator'), `${s.simDays}${s.simFt ? ` (${mmToHm(s.simFt)} SIM FT)` : ''}`], [tr('Attività a terra', 'Ground duty'), s.groundDays], [tr('Riposi', 'Days off'), s.offDays], [tr('Ferie', 'Leave'), s.vacDays], [tr('Giorni X', 'X days'), s.restDays]]
         .filter(([, v]) => v !== 0 && v !== '0')
         .map(([l, v]) => h('div', { class: 'cmp' }, h('span', {}, l), h('b', {}, v))))));
 
@@ -56,30 +57,30 @@ export function renderStats(view) {
   if (imports.length) {
     const cards = imports.slice(0, 2).map((imp) => {
       const c = checkTotals(imp.roster);
-      const line = (label, comp, printed, ok) => h('div', { class: 'cmp' }, h('span', {}, label), h('span', {}, `calcolato ${comp} · PDF ${printed ?? '—'} `, ok == null ? '' : ok ? h('span', { class: 'ok' }, '✓') : h('span', { class: 'bad' }, '≠')));
+      const line = (label, comp, printed, ok) => h('div', { class: 'cmp' }, h('span', {}, label), h('span', {}, `${tr('calcolato', 'computed')} ${comp} · PDF ${printed ?? '—'} `, ok == null ? '' : ok ? h('span', { class: 'ok' }, '✓') : h('span', { class: 'bad' }, '≠')));
       return h('div', { style: 'margin-top:6px' },
-        h('small', { class: 'muted' }, `PDF stampato ${imp.roster.meta.printedAt?.replace('T', ' ') ?? ''} · ${fmtDayShort(imp.roster.meta.periodStart)}–${fmtDayShort(imp.roster.meta.periodEnd)}`),
-        line('FT', c.computed.ft, c.printed.ft, c.ftOk), line('DT', c.computed.dt, c.printed.dt, c.dtOk), line('Giorni Off', c.computed.offDays, c.printed.offDays, c.offOk));
+        h('small', { class: 'muted' }, `${tr('PDF stampato', 'PDF printed')} ${imp.roster.meta.printedAt?.replace('T', ' ') ?? ''} · ${fmtDayShort(imp.roster.meta.periodStart)}–${fmtDayShort(imp.roster.meta.periodEnd)}`),
+        line('FT', c.computed.ft, c.printed.ft, c.ftOk), line('DT', c.computed.dt, c.printed.dt, c.dtOk), line(tr('Giorni Off', 'Days off'), c.computed.offDays, c.printed.offDays, c.offOk));
     });
-    parts.push(h('div', { class: 'card' }, h('h2', {}, 'Confronto con i totali del PDF'), cards));
+    parts.push(h('div', { class: 'card' }, h('h2', {}, tr('Confronto con i totali del PDF', 'Comparison with PDF totals')), cards));
   }
 
   // finestre mobili
   const seg = h('div', { class: 'seg' },
-    [['today', 'Fino a oggi'], ['end', 'Fine mese']].map(([v, l]) => h('button', { 'aria-pressed': String(mode === v), onclick: () => { state.settings.statsUntil = v; saveSettings(); renderStats(view); } }, l)));
+    [['today', tr('Fino a oggi', 'Up to today')], ['end', tr('Fine mese', 'End of month')]].map(([v, l]) => h('button', { 'aria-pressed': String(mode === v), onclick: () => { state.settings.statsUntil = v; saveSettings(); renderStats(view); } }, l)));
   const r7 = rolling(state.data.days, refDate, 7);
   const r14 = rolling(state.data.days, refDate, 14);
   const r28 = rolling(state.data.days, refDate, 28);
-  parts.push(h('div', { class: 'card' }, h('h2', {}, `Periodi mobili al ${fmtDayShort(refDate)}`), seg,
-    limitRow('FT ultimi 28 giorni', r28.ft, LIMITS.ft28), limitRow('DT ultimi 7 giorni', r7.dt, LIMITS.dt7), limitRow('DT ultimi 14 giorni', r14.dt, LIMITS.dt14), limitRow('DT ultimi 28 giorni', r28.dt, LIMITS.dt28),
-    h('p', { class: 'muted', style: 'font-size:12px;margin-top:8px' }, 'Limiti indicativi EASA ORO.FTL.210. Contano solo i giorni presenti nei PDF importati: se mancano mesi precedenti il valore è sottostimato.')));
+  parts.push(h('div', { class: 'card' }, h('h2', {}, tr(`Periodi mobili al ${fmtDayShort(refDate)}`, `Rolling periods to ${fmtDayShort(refDate)}`)), seg,
+    limitRow(tr('FT ultimi 28 giorni', 'FT last 28 days'), r28.ft, LIMITS.ft28), limitRow(tr('DT ultimi 7 giorni', 'DT last 7 days'), r7.dt, LIMITS.dt7), limitRow(tr('DT ultimi 14 giorni', 'DT last 14 days'), r14.dt, LIMITS.dt14), limitRow(tr('DT ultimi 28 giorni', 'DT last 28 days'), r28.dt, LIMITS.dt28),
+    h('p', { class: 'muted', style: 'font-size:12px;margin-top:8px' }, tr('Limiti indicativi EASA ORO.FTL.210. Contano solo i giorni presenti nei PDF importati: se mancano mesi precedenti il valore è sottostimato.', 'Indicative EASA ORO.FTL.210 limits. Only days in the imported PDFs count: if earlier months are missing the value is underestimated.'))));
 
   // andamento mesi
   const keys = monthKeys();
   if (keys.length > 1) {
     const vals = keys.map((k) => ({ k, ft: monthSummary(monthDays(k)).ft }));
     const max = Math.max(...vals.map((v) => v.ft), 1);
-    parts.push(h('div', { class: 'card' }, h('h2', {}, 'FT per mese'), h('div', { class: 'bars' }, vals.slice(-12).map((v) => h('div', {}, h('b', {}, mmToHm(v.ft)), h('i', { style: `height:${(v.ft / max) * 80}%` }), h('span', {}, fmtMonth(v.k).slice(0, 3)))))));
+    parts.push(h('div', { class: 'card' }, h('h2', {}, tr('FT per mese', 'FT per month')), h('div', { class: 'bars' }, vals.slice(-12).map((v) => h('div', {}, h('b', {}, mmToHm(v.ft)), h('i', { style: `height:${(v.ft / max) * 80}%` }), h('span', {}, fmtMonth(v.k).slice(0, 3)))))));
   }
   view.replaceChildren(...parts);
 }

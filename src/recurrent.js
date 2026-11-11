@@ -1,13 +1,14 @@
 // Scadenze Recurrent Training / Checks.
+import { tr } from './i18n.js';
 
 // Il PDF taglia i nomi lunghi ("Operator Proficiency Chec"): per i codici che
 // conosciamo si usa un nome completo, altrimenti il testo del PDF.
 const NAMES = [
   [/^EST(\d+)_RT$/, (m) => `EST ${m[1]} Recurrent Training`],
   [/^LC(\d+)$/, (m) => `Line Check B7${m[1] === '78' ? '87' : '37'}`],
-  [/^LICENCE_(\d+)$/, (m) => `Licenza B7${m[1] === '78' ? '87' : '37'}`],
+  [/^LICENCE_(\d+)$/, (m) => `${tr('Licenza', 'Licence')} B7${m[1] === '78' ? '87' : '37'}`],
   [/^OPC(\d+)$/, (m) => `OPC (Operator Proficiency Check) B7${m[1] === '78' ? '87' : '37'}`],
-  [/^SIM(\d+)_RT$/, (m) => `Simulatore Recurrent B7${m[1] === '78' ? '87' : '37'}`],
+  [/^SIM(\d+)_RT$/, (m) => `${tr('Simulatore Recurrent', 'Simulator Recurrent')} B7${m[1] === '78' ? '87' : '37'}`],
   [/^Z2_(\d+)$/, (m) => `Pre-flight and ETOPS PDSC B7${m[1] === '78' ? '87' : '37'}`],
   [/^GRT(\d+)_A$/, () => 'Ground Recurrent Training'],
   [/^RAD$/, () => 'Medical Check - RAD D.lgs'],

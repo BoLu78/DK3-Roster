@@ -1,6 +1,7 @@
 // Export calendario .ics (RFC 5545).
 import { eventName } from './labels.js';
 import { buildDayTimeline, buildDuties, fmtUtc, localTime } from './timeline.js';
+import { tr } from './i18n.js';
 
 export function icsDate(ms) {
   return new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
@@ -35,7 +36,7 @@ export function fold(line) {
 // per i servizi spariti dal roster si ripete l'evento già esportato con STATUS:CANCELLED.
 // previous: { uid: { date, dt: [righe DTSTART/DTEND] } } dall'export precedente (stesso formato).
 // Restituisce la mappa degli eventi esportati ora, da salvare per il prossimo export.
-export function finishCalendar(out, { previous = {}, from = null, to = null, nowMs = Date.now(), seq = Math.floor(nowMs / 1000), cancelledTitle = 'Annullato · non più nel roster' } = {}) {
+export function finishCalendar(out, { previous = {}, from = null, to = null, nowMs = Date.now(), seq = Math.floor(nowMs / 1000), cancelledTitle = tr('Annullato · non più nel roster', 'Cancelled · no longer in the roster') } = {}) {
   const emitted = {};
   let cur = null;
   for (const line of out) {
@@ -95,7 +96,7 @@ function describeDuty(duty, airports, refDate) {
   const lines = [];
   const hm = (ms, apt) => {
     const loc = localTime(ms, apt, airports, refDate);
-    return `${fmtUtc(ms)}Z${loc ? ` (${loc.time} locale${loc.dayDelta ? ` ${loc.dayDelta > 0 ? '+' : ''}${loc.dayDelta}` : ''})` : ''}`;
+    return `${fmtUtc(ms)}Z${loc ? ` (${loc.time} ${tr('locale', 'local')}${loc.dayDelta ? ` ${loc.dayDelta > 0 ? '+' : ''}${loc.dayDelta}` : ''})` : ''}`;
   };
   if (duty.pickupMs) lines.push(`Pick up ${fmtUtc(duty.pickupMs)}Z`);
   if (duty.ci) lines.push(`${eventName(duty.ci.label, 'C/I')} ${duty.ci.airport ?? ''} ${hm(duty.ci.ms, duty.ci.airport)}`);
@@ -112,9 +113,9 @@ function describeDuty(duty, airports, refDate) {
 function dutySummary(duty) {
   const legs = duty.legs.map((l) => l.leg);
   if (duty.kind === 'flight') return `✈ ${routeOfLegs(legs)} ${flightNumbersOf(legs)}`.trim();
-  if (duty.kind === 'sim') return 'Simulatore';
-  if (duty.kind === 'ground') return `Attività a terra ${legs[0]?.code ?? ''}`.trim();
-  return `Trasferimento ${routeOfLegs(legs)}`.trim();
+  if (duty.kind === 'sim') return tr('Simulatore', 'Simulator');
+  if (duty.kind === 'ground') return `${tr('Attività a terra', 'Ground duty')} ${legs[0]?.code ?? ''}`.trim();
+  return `${tr('Trasferimento', 'Positioning')} ${routeOfLegs(legs)}`.trim();
 }
 
 const isoDate = (ms) => new Date(ms).toISOString().slice(0, 10);
@@ -139,7 +140,7 @@ export function buildIcs(days, airports, options = {}, nowMs = Date.now()) {
     out.push(`SUMMARY:${esc(summary)}`);
     if (location) out.push(`LOCATION:${esc(airports?.[location]?.name ? `${location} - ${airports[location].name}` : location)}`);
     out.push(`DESCRIPTION:${esc([version, description].filter(Boolean).join('\n'))}`);
-    if (alarmMinutes > 0 && startMs != null && endMs > startMs) out.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:Servizio', `TRIGGER:-PT${alarmMinutes}M`, 'END:VALARM');
+    if (alarmMinutes > 0 && startMs != null && endMs > startMs) out.push('BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${tr('Servizio', 'Duty')}`, `TRIGGER:-PT${alarmMinutes}M`, 'END:VALARM');
     out.push('END:VEVENT');
     count++;
   };
@@ -171,8 +172,8 @@ export function buildIcs(days, airports, options = {}, nowMs = Date.now()) {
     }
     if (slots.has(day.date) || dutyStart.has(day.date) && scope === 'all') continue;
     // giorno senza servizi che iniziano: evento di tutto il giorno, così occupa il suo posto
-    const free = { off: 'OFF', vacation: 'Ferie', rest: `Riposo${day.hotel?.airport ? ` a ${day.hotel.airport}` : ''}` }[day.kind];
-    const title = free ?? (scope === 'flights' ? 'Nessun volo' : null);
+    const free = { off: 'OFF', vacation: tr('Ferie', 'Leave'), rest: `${tr('Riposo', 'Rest')}${day.hotel?.airport ? ` ${tr('a', 'in')} ${day.hotel.airport}` : ''}` }[day.kind];
+    const title = free ?? (scope === 'flights' ? tr('Nessun volo', 'No flight') : null);
     if (!title) continue; // giorno dentro un servizio iniziato prima, o senza dati
     event(slotUid(day.date), title, null, [title, day.hotel?.name].filter(Boolean).join('\n'), null, null, day.date);
   }

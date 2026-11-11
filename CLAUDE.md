@@ -72,6 +72,14 @@ Il repository è pubblico. Non devono mai finire in git:
 - Se `samples/` è vuota i test del parser vengono saltati, non falliscono.
 - Dopo ogni modifica al parser, rilancia i test prima di proporre un commit.
 
+## Lingue (italiano e inglese)
+
+- L'app è in italiano, con la spunta "App in inglese / English" in Altro (impostazione `lang`).
+- **Ogni testo mostrato all'utente va scritto nelle due lingue** con `tr('testo italiano', 'English text')`
+  da `src/i18n.js` (anche nei file di `src/`: note FTL, export .ics, avvisi). Nomi di giorni/mesi:
+  `dowShort`, `monthName`... sempre da `src/i18n.js`. Termini operativi già inglesi (C/I, FDP, Extension) restano.
+- Le righe "cosa è cambiato" (`src/diff.js`) si salvano in italiano e si traducono quando si mostrano (`changeLine`).
+
 ## Struttura
 
 - `src/` logica pura (parser, fusi orari, timeline UTC/locale, scadenze, diff, stats, ics): testata con `node --test`.

@@ -1,5 +1,5 @@
 // Lista dei giorni del mese, stile RosterBuster.
-import { h, DOW_SHORT, dowOf, fmtMonth, fmtDayShort, isoWeek, kindOf, mmToHm, todayIso } from './util.js';
+import { h, dowOf, dowName, fmtMonth, fmtDayShort, isoWeek, kindOf, mmToHm, todayIso } from './util.js';
 import { state, actions, monthDays, monthKeys, homeTravelMin } from './state.js';
 import { times, utcText, locText } from './timefmt.js';
 import { buildDayTimeline } from '../src/timeline.js';
@@ -41,25 +41,25 @@ export function daySummary(day) {
     const first = day.seq?.[0];
     const hasCo = tl.events.some((e) => e.t === 'co');
     const hasCi = tl.events.some((e) => e.t === 'ci');
-    out.title = day.kind === 'sim' ? 'Simulatore' : day.kind === 'ground' ? 'Attività a terra' : arrowRoute(day) || (hasCi ? `Check-in ${day.checkIn.airport}` : 'Servizio');
+    out.title = day.kind === 'sim' ? tr('Simulatore', 'Simulator') : day.kind === 'ground' ? tr('Attività a terra', 'Ground duty') : arrowRoute(day) || (hasCi ? `Check-in ${day.checkIn.airport}` : tr('Servizio', 'Duty'));
     if (tl.startMs != null && tl.endMs != null) {
       if (tl.endMs > tl.startMs) out.timeline = rng(tl.startMs, airportAt(tl, tl.startMs, base), tl.endMs, airportAt(tl, tl.endMs, base));
       else {
         const t = times(tl.startMs, airportAt(tl, tl.startMs, base), day.date);
-        out.timeline = { utc: `dalle ${t.utc}Z →`, loc: t.loc ? `${t.loc} LT` : '' };
+        out.timeline = { utc: tr(`dalle ${t.utc}Z →`, `from ${t.utc}Z →`), loc: t.loc ? `${t.loc} LT` : '' };
       }
     }
     if (day.kind === 'flight') out.extra.push(flightNumbers(day));
     // voli o positioning su altre compagnie: "per Arkia", "DH Wizz Air Malta"
     for (const note of new Set(day.legs.map(airlineNote).filter(Boolean))) out.extra.push(note);
     if ((day.kind === 'sim' || day.kind === 'ground') && day.legs[0]) out.extra.push([day.legs[0].code, day.legs[0].note].filter(Boolean).join(' · '));
-    if (first && !['pickup', 'ci'].includes(first.t)) out.extra.push('↤ dal giorno prima');
-    if (hasCi && !hasCo) out.extra.push('continua il giorno dopo ↦');
+    if (first && !['pickup', 'ci'].includes(first.t)) out.extra.push(tr('↤ dal giorno prima', '↤ from the day before'));
+    if (hasCi && !hasCo) out.extra.push(tr('continua il giorno dopo ↦', 'continues next day ↦'));
   } else if (day.kind === 'standby') {
     out.title = day.code === 'RESERVE' ? 'Reserve' : 'Stand-by';
     if (tl.window) out.timeline = rng(tl.window.startMs, day.airport, tl.window.endMs, day.airport);
     if (day.airport) out.extra.push(day.airport);
-  } else if (day.kind === 'vacation') out.title = 'Ferie';
+  } else if (day.kind === 'vacation') out.title = tr('Ferie', 'Leave');
   return out;
 }
 
@@ -89,7 +89,7 @@ function wxChips(day) {
 export function tailLines(date) {
   return (state.tails.get(date) ?? []).map((t) => {
     const x = times(t.endMs, t.endApt, date);
-    return `↤ Fine del servizio del ${fmtDayShort(t.fromDate)} · ${eventName(t.label, 'C/O').toLowerCase()} ${x?.loc ? `${x.loc} LT (${x.utc}Z)` : `${x?.utc}Z`}`;
+    return `${tr('↤ Fine del servizio del', '↤ End of duty of')} ${fmtDayShort(t.fromDate)} · ${eventName(t.label, 'C/O').toLowerCase()} ${x?.loc ? `${x.loc} LT (${x.utc}Z)` : `${x?.utc}Z`}`;
   });
 }
 
@@ -113,11 +113,11 @@ function dayRow(day, today) {
   const changed = state.pending.has(day.date);
   const isExt = day.flags.includes('E_FDP');
   const cls = ['day', k.cls, day.kind, day.date === today ? 'today' : '', changed ? 'changed' : '', isExt ? 'ext' : ''].filter(Boolean).join(' ');
-  const dt = h('div', { class: 'dt' }, h('div', { class: 'n' }, Number(day.date.slice(8))), h('div', { class: 'w' }, DOW_SHORT[dowOf(day.date)]));
+  const dt = h('div', { class: 'dt' }, h('div', { class: 'n' }, Number(day.date.slice(8))), h('div', { class: 'w' }, dowName(day.date)));
   let main;
   if (['off', 'blank', 'rest'].includes(day.kind) && !day.seq?.length) {
     const tail = tailLines(day.date);
-    main = h('div', { class: 'main', style: tail.length ? 'flex-direction:column;align-items:flex-start;justify-content:center' : null }, tail.length ? h('div', { class: 'muted' }, tail.map((t) => h('div', {}, t))) : null, h('span', {}, { off: 'OFF', rest: 'Giorno X · nessun nuovo servizio', blank: tail.length ? '' : '—' }[day.kind]), day.hotel ? h('span', { class: 'muted', style: 'margin-left:10px' }, `🛏 ${day.hotel.code} ${day.hotel.airport ?? ''}`) : null);
+    main = h('div', { class: 'main', style: tail.length ? 'flex-direction:column;align-items:flex-start;justify-content:center' : null }, tail.length ? h('div', { class: 'muted' }, tail.map((t) => h('div', {}, t))) : null, h('span', {}, { off: 'OFF', rest: tr('Giorno X · nessun nuovo servizio', 'Day X · no new duty'), blank: tail.length ? '' : '—' }[day.kind]), day.hotel ? h('span', { class: 'muted', style: 'margin-left:10px' }, `🛏 ${day.hotel.code} ${day.hotel.airport ?? ''}`) : null);
   } else {
     const s = daySummary(day);
     main = h('div', { class: 'main' },
@@ -129,6 +129,7 @@ function dayRow(day, today) {
 }
 
 import { markAllSeen } from './seen.js';
+import { tr } from '../src/i18n.js';
 const lastChanged = () => [...state.imports].filter((i) => i.changes && !i.seen).sort((a, b) => b.importedAt.localeCompare(a.importedAt))[0];
 
 export function nextDuty() {
@@ -146,11 +147,11 @@ export function renderList(view) {
   if (next) {
     const s = daySummary(next);
     const n = Math.round((Date.parse(next.date + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 86400000);
-    const when = n === 0 ? 'Oggi' : n === 1 ? 'Domani' : `Tra ${n} giorni`;
+    const when = n === 0 ? tr('Oggi', 'Today') : n === 1 ? tr('Domani', 'Tomorrow') : tr(`Tra ${n} giorni`, `In ${n} days`);
     const k = kindOf(next);
     const ci = next.checkIn ? times(buildDayTimeline(next).checkIn?.ms, next.checkIn.airport, next.date) : null;
     frag.push(h('button', { class: `next ${k.cls}`, onclick: () => actions.openDay(next.date) },
-      h('div', { class: 'lbl' }, `Prossimo servizio · ${when} · ${fmtDayShort(next.date)}`),
+      h('div', { class: 'lbl' }, `${tr('Prossimo servizio', 'Next duty')} · ${when} · ${fmtDayShort(next.date)}`),
       h('div', { class: 'big' }, s.title),
       s.timeline ? h('div', {}, s.timeline.utc, s.timeline.loc ? h('span', { class: 'loc' }, `  ·  ${s.timeline.loc}`) : null) : null,
       ci ? h('div', { class: 'loc' }, `${eventName(next.checkIn.label, 'C/I')} ${utcText(ci)}${ci.loc ? ` (${locText(ci)})` : ''}`) : null));
@@ -160,21 +161,21 @@ export function renderList(view) {
     .filter((r) => (state.settings.include787 || r.aircraft !== 'B787') && r.status !== 'ok');
   if (rec.length) {
     const exp = rec.filter((r) => r.status === 'expired').length;
-    frag.push(h('button', { class: 'banner alert', onclick: () => actions.go('exp') }, h('span', {}, '⚠️'), h('span', {}, h('b', {}, exp ? `${exp} scadut${exp === 1 ? 'a' : 'e'}` : `${rec.length} in scadenza`), exp && rec.length > exp ? ` · ${rec.length - exp} in scadenza` : ''), h('span', { class: 'go' }, 'Vedi ›')));
+    frag.push(h('button', { class: 'banner alert', onclick: () => actions.go('exp') }, h('span', {}, '⚠️'), h('span', {}, h('b', {}, exp ? tr(`${exp} scadut${exp === 1 ? 'a' : 'e'}`, `${exp} expired`) : tr(`${rec.length} in scadenza`, `${rec.length} due soon`)), exp && rec.length > exp ? tr(` · ${rec.length - exp} in scadenza`, ` · ${rec.length - exp} due soon`) : ''), h('span', { class: 'go' }, tr('Vedi ›', 'View ›'))));
   }
   const ch = days.filter((d) => state.pending.has(d.date));
   if (state.pending.size) {
     const here = ch.length;
     frag.push(h('div', { class: 'banner change' },
-      h('button', { class: 'bn-main', onclick: () => showImportSheet(lastChanged()) }, h('span', {}, '🔄'), h('span', {}, h('b', {}, here ? `${here} giorn${here === 1 ? 'o' : 'i'} modificat${here === 1 ? 'o' : 'i'}` : `${state.pending.size} giorn${state.pending.size === 1 ? 'o' : 'i'} modificat${state.pending.size === 1 ? 'o' : 'i'} in altri mesi`), ' dall’ultimo import'), h('span', { class: 'go' }, 'Vedi ›')),
-      h('button', { class: 'bn-clear', onclick: async () => { await markAllSeen(); await actions.refresh(); actions.toast('Pallini tolti'); } }, 'Togli i pallini')));
+      h('button', { class: 'bn-main', onclick: () => showImportSheet(lastChanged()) }, h('span', {}, '🔄'), h('span', {}, h('b', {}, here ? tr(`${here} giorn${here === 1 ? 'o' : 'i'} modificat${here === 1 ? 'o' : 'i'}`, `${here} day${here === 1 ? '' : 's'} changed`) : tr(`${state.pending.size} giorn${state.pending.size === 1 ? 'o' : 'i'} modificat${state.pending.size === 1 ? 'o' : 'i'} in altri mesi`, `${state.pending.size} day${state.pending.size === 1 ? '' : 's'} changed in other months`)), tr(' dall’ultimo import', ' since the last import')), h('span', { class: 'go' }, tr('Vedi ›', 'View ›'))),
+      h('button', { class: 'bn-clear', onclick: async () => { await markAllSeen(); await actions.refresh(); actions.toast(tr('Pallini tolti', 'Markers cleared')); } }, tr('Togli i pallini', 'Clear markers'))));
   }
 
   const s = monthSummary(days);
   frag.push(h('div', { class: 'summary' },
     h('div', {}, h('b', {}, mmToHm(s.ft)), h('small', {}, 'FT')),
     h('div', {}, h('b', {}, mmToHm(s.dt)), h('small', {}, 'DT')),
-    h('div', {}, h('b', {}, s.sectors), h('small', {}, 'Settori')),
+    h('div', {}, h('b', {}, s.sectors), h('small', {}, tr('Settori', 'Sectors'))),
     h('div', {}, h('b', {}, s.offDays), h('small', {}, 'Off'))));
 
   // settimane (lunedì-domenica)
@@ -192,7 +193,7 @@ export function renderList(view) {
   }
   for (const wk of weeks) {
     const ft = wk.days.reduce((a, d) => a + hhmmToMinutes(d.ft), 0);
-    frag.push(h('div', { class: 'week' }, h('span', {}, `Sett. ${wk.w} · ${fmtDayShort(wk.days[0].date)}–${fmtDayShort(wk.days.at(-1).date)}`), ft ? h('span', {}, `FT ${mmToHm(ft)}`) : null));
+    frag.push(h('div', { class: 'week' }, h('span', {}, `${tr('Sett.', 'Wk')} ${wk.w} · ${fmtDayShort(wk.days[0].date)}–${fmtDayShort(wk.days.at(-1).date)}`), ft ? h('span', {}, `FT ${mmToHm(ft)}`) : null));
     for (const d of wk.days) frag.push(dayRow(d, today));
   }
   view.replaceChildren(...frag);

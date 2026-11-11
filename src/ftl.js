@@ -5,6 +5,7 @@
 import { buildDuties, localTime, utcOffsetHours } from './timeline.js';
 import { buildTrips } from './trips.js';
 import { timezoneFor } from './tz.js';
+import { tr } from './i18n.js';
 
 const MIN = 60000;
 const HOUR = 3600000;
@@ -183,10 +184,10 @@ function analyzeDuty(duty, trip, ctx, crew, extFlag = false) {
   const wocl = woclEncroachMin(refMin, fdpMin);
   const cap = extSectorCap(wocl);
   let ext = state === 'X' ? null : extFdpMax(refMin, sectors);
-  let extWhy = ext == null ? (state === 'X' ? 'acclimatazione sconosciuta' : 'orario di inizio o numero di settori non ammessi dalla tabella') : null;
+  let extWhy = ext == null ? (state === 'X' ? tr('acclimatazione sconosciuta', 'unknown acclimatisation') : tr('orario di inizio o numero di settori non ammessi dalla tabella', 'start time or number of sectors not allowed by the table')) : null;
   if (ext != null && sectors > cap) {
     ext = null;
-    extWhy = `con ${wocl ? `la WOCL toccata per ${fmtHM(wocl)}` : 'la WOCL non toccata'} l’estensione ammette al massimo ${cap} settori`;
+    extWhy = tr(`con ${wocl ? `la WOCL toccata per ${fmtHM(wocl)}` : 'la WOCL non toccata'} l’estensione ammette al massimo ${cap} settori`, `with ${wocl ? `WOCL encroached by ${fmtHM(wocl)}` : 'no WOCL encroachment'} the extension allows at most ${cap} sectors`);
   }
   out.wocl = wocl;
   const longSector = flights.some((l) => (l.arrMs - l.depMs) / MIN > 540);
@@ -196,7 +197,7 @@ function analyzeDuty(duty, trip, ctx, crew, extFlag = false) {
 
   // E_FDP nel roster = servizio pianificato con estensione ("EXTENSION" nell'app): vale il massimo esteso (OMA 7.1.7.2)
   const extPlanned = extFlag && ext != null;
-  if (extFlag && ext == null) out.notes.push(`EXTENSION nel roster ma non ammessa: ${extWhy} → vale il massimo base`);
+  if (extFlag && ext == null) out.notes.push(tr(`EXTENSION nel roster ma non ammessa: ${extWhy} → vale il massimo base`, `EXTENSION in the roster but not allowed: ${extWhy} → basic maximum applies`));
   // con Extension il riposo in volo non si può usare (OMA 7.1.7.2/7.1.7.3): l'equipaggio è quello standard
   const used = extPlanned ? ext : inflight ? Math.max(basic ?? 0, inflight) : basic;
   // la discrezione del comandante si calcola sempre sul massimo base (OMA 7.2.1): +2 h
@@ -206,16 +207,16 @@ function analyzeDuty(duty, trip, ctx, crew, extFlag = false) {
   if (extPlanned) {
     out.extPlanned = true;
     out.notes.push(
-      `EXTENSION pianificata: max base ${fmtHM(basic)} + 1 h = ${fmtHM(ext)}`,
-      `Settori: max ${cap} con WOCL ${wocl ? `toccata per ${fmtHM(wocl)}` : 'non toccata'}`,
-      'Riposo in volo non ammesso con Extension',
-      `Cpt Discretion: +2 h sul max base (non sull’esteso) = ${fmtHM(discretion)}`,
-      'Riposo: +2 h prima e +2 h dopo, oppure +4 h dopo',
-      'Da verificare: remark “Ext” notificato ≥10 h prima dell’FDP; max 2 Extension in 7 giorni',
+      tr(`EXTENSION pianificata: max base ${fmtHM(basic)} + 1 h = ${fmtHM(ext)}`, `Planned EXTENSION: basic max ${fmtHM(basic)} + 1 h = ${fmtHM(ext)}`),
+      tr(`Settori: max ${cap} con WOCL ${wocl ? `toccata per ${fmtHM(wocl)}` : 'non toccata'}`, `Sectors: max ${cap} with WOCL ${wocl ? `encroached by ${fmtHM(wocl)}` : 'not encroached'}`),
+      tr('Riposo in volo non ammesso con Extension', 'In-flight rest not allowed with Extension'),
+      tr(`Cpt Discretion: +2 h sul max base (non sull’esteso) = ${fmtHM(discretion)}`, `Cpt Discretion: +2 h on the basic max (not the extended one) = ${fmtHM(discretion)}`),
+      tr('Riposo: +2 h prima e +2 h dopo, oppure +4 h dopo', 'Rest: +2 h before and +2 h after, or +4 h after'),
+      tr('Da verificare: remark “Ext” notificato ≥10 h prima dell’FDP; max 2 Extension in 7 giorni', 'To check: “Ext” remark notified ≥10 h before the FDP; max 2 Extensions in 7 days'),
     );
-    if (fdpMin <= basic) out.notes.push(`FDP entro il max base (${fmtHM(basic)}): Extension non usata`);
+    if (fdpMin <= basic) out.notes.push(tr(`FDP entro il max base (${fmtHM(basic)}): Extension non usata`, `FDP within the basic max (${fmtHM(basic)}): Extension not used`));
   }
-  if (crew >= 3 && sectors > 3) out.notes.push('Riposo in volo: max 3 settori');
+  if (crew >= 3 && sectors > 3) out.notes.push(tr('Riposo in volo: max 3 settori', 'In-flight rest: max 3 sectors'));
 
   if (used == null) return out;
   if (fdpMin <= used) {
@@ -223,17 +224,17 @@ function analyzeDuty(duty, trip, ctx, crew, extFlag = false) {
     out.status = out.gapMin <= WARN_MARGIN_MIN ? 'warn' : 'ok';
     out.limitKind = extPlanned && !(inflight && used === inflight) ? 'ext' : inflight && used === inflight && inflight > (basic ?? 0) ? 'inflight' : 'basic';
     out.usedInflight = out.limitKind === 'inflight' && fdpMin > (basic ?? 0); // serve davvero il riposo in volo
-    if (out.usedInflight) out.notes.push('Entro il limite solo con riposo in volo (equipaggio aumentato)');
+    if (out.usedInflight) out.notes.push(tr('Entro il limite solo con riposo in volo (equipaggio aumentato)', 'Within the limit only with in-flight rest (augmented crew)'));
   } else if (ext != null && fdpMin <= ext) {
     out.gapMin = ext - fdpMin;
     out.status = 'ext';
     out.limitKind = 'ext';
-    out.notes.push('Oltre il max base: serve Extension pianificata, con remark “Ext” nel roster');
+    out.notes.push(tr('Oltre il max base: serve Extension pianificata, con remark “Ext” nel roster', 'Beyond the basic max: a planned Extension is needed, with the “Ext” remark in the roster'));
   } else {
     out.gapMin = used - fdpMin;
     out.status = 'over';
     out.limitKind = extPlanned ? 'ext' : 'basic';
-    if (discretion != null && fdpMin <= discretion) out.notes.push('Entro la Cpt Discretion');
+    if (discretion != null && fdpMin <= discretion) out.notes.push(tr('Entro la Cpt Discretion', 'Within Cpt Discretion'));
   }
   return out;
 }
@@ -246,12 +247,12 @@ function restBetween(prev, next, ctx) {
   const restMin = Math.round((to - from) / MIN);
   const atBase = next.ciApt === ctx.base;
   let need = Math.max(prev.dutyMin, atBase ? 720 : 600);
-  const why = [atBase ? 'a base: max(duty precedente, 12 h)' : 'fuori base: max(duty precedente, 10 h)'];
+  const why = [atBase ? tr('a base: max(duty precedente, 12 h)', 'at home base: max(preceding duty, 12 h)') : tr('fuori base: max(duty precedente, 10 h)', 'away from base: max(preceding duty, 10 h)')];
   // fuso: servizio con 4 h o più di differenza -> fuori base almeno 14 h
   const tzDiff = Math.abs(ctx.offset(prev.startMs, prev.ciApt) - ctx.offset(prev.endMs, prev.coApt));
   if (!atBase && tzDiff >= 4) {
     need = Math.max(need, 840);
-    why.push('fuso ≥4 h: 14 h');
+    why.push(tr('fuso ≥4 h: 14 h', 'time difference ≥4 h: 14 h'));
   }
   // riposo in volo usato: 14 h
   if (prev.usedInflight && !atBase) need = Math.max(need, 840);
@@ -260,7 +261,7 @@ function restBetween(prev, next, ctx) {
   let hasNight = true;
   if (localNightNeeded) {
     hasNight = containsLocalNight(from, to, ctx);
-    why.push('da fine tardi/notte a inizio presto: 1 notte locale');
+    why.push(tr('da fine tardi/notte a inizio presto: 1 notte locale', 'late finish/night to early start: 1 local night'));
   }
   const status = restMin < need || !hasNight ? 'over' : restMin - need < 60 ? 'warn' : 'ok';
   return { fromMs: from, toMs: to, restMin, needMin: need, status, why, atBase, hasNight, dates: [isoDate(to)] };
@@ -287,7 +288,7 @@ function applyExtensionRest(rests, duties) {
     const more = extra(r, best.opt);
     r.needMin += more;
     r.extraMin = more;
-    r.why.push(`Extension: riposo +${more / 60} h`);
+    r.why.push(tr(`Extension: riposo +${more / 60} h`, `Extension: rest +${more / 60} h`));
     r.status = r.restMin < r.needMin || !r.hasNight ? 'over' : r.restMin - r.needMin < 60 ? 'warn' : 'ok';
   }
 }
@@ -365,12 +366,12 @@ export function analyze(days, options) {
 
   for (const d of duties) {
     const date = isoDate(d.startMs);
-    if (d.status === 'over') add('bad', date, `FDP ${fmtHM(d.fdp.min)} sopra il massimo ${fmtHM(d.limits.used)} (${d.fdp.sectors} settori)`);
-    else if (d.status === 'ext') add('warn', date, `FDP ${fmtHM(d.fdp.min)} oltre il massimo base ${fmtHM(d.limits.basic)}: richiede Extension, ma nel roster non c’è`);
-    else if (d.status === 'warn') add('warn', date, `FDP ${fmtHM(d.fdp.min)} al limite (massimo ${fmtHM(d.limits.used)})`);
-    if (d.extPlanned && d.fdp.min > d.limits.basic && d.status !== 'over') add('info', date, `FDP ${fmtHM(d.fdp.min)} con EXTENSION pianificata: massimo ${fmtHM(d.limits.used)}`);
-    if (d.acclimatisation?.state === 'X') add('info', date, 'Stato di acclimatazione sconosciuto (X): uso la tabella più restrittiva');
-    if (d.tzUnknown) add('info', date, `Fuso di ${d.ciApt} non noto: uso l’ora di base`);
+    if (d.status === 'over') add('bad', date, tr(`FDP ${fmtHM(d.fdp.min)} sopra il massimo ${fmtHM(d.limits.used)} (${d.fdp.sectors} settori)`, `FDP ${fmtHM(d.fdp.min)} above the maximum ${fmtHM(d.limits.used)} (${d.fdp.sectors} sectors)`));
+    else if (d.status === 'ext') add('warn', date, tr(`FDP ${fmtHM(d.fdp.min)} oltre il massimo base ${fmtHM(d.limits.basic)}: richiede Extension, ma nel roster non c’è`, `FDP ${fmtHM(d.fdp.min)} beyond the basic maximum ${fmtHM(d.limits.basic)}: needs an Extension, but none in the roster`));
+    else if (d.status === 'warn') add('warn', date, tr(`FDP ${fmtHM(d.fdp.min)} al limite (massimo ${fmtHM(d.limits.used)})`, `FDP ${fmtHM(d.fdp.min)} close to the limit (maximum ${fmtHM(d.limits.used)})`));
+    if (d.extPlanned && d.fdp.min > d.limits.basic && d.status !== 'over') add('info', date, tr(`FDP ${fmtHM(d.fdp.min)} con EXTENSION pianificata: massimo ${fmtHM(d.limits.used)}`, `FDP ${fmtHM(d.fdp.min)} with planned EXTENSION: maximum ${fmtHM(d.limits.used)}`));
+    if (d.acclimatisation?.state === 'X') add('info', date, tr('Stato di acclimatazione sconosciuto (X): uso la tabella più restrittiva', 'Unknown acclimatisation state (X): using the most restrictive table'));
+    if (d.tzUnknown) add('info', date, tr(`Fuso di ${d.ciApt} non noto: uso l’ora di base`, `Time zone of ${d.ciApt} unknown: using home base time`));
   }
 
   // riposi: dalla fine del servizio o dello stand-by precedente alla presentazione del servizio successivo.
@@ -393,22 +394,22 @@ export function analyze(days, options) {
     const prev = timeline.slice(0, i).reduce((a, b) => (b.endMs > a.endMs ? b : a)); // ciò che finisce per ultimo
     const r = restBetween(prev, next, ctx);
     if (!r) continue;
-    if (prev.standby) r.why.unshift('dopo stand-by');
+    if (prev.standby) r.why.unshift(tr('dopo stand-by', 'after standby'));
     r.prevKey = prev.standby ? null : prev.key;
     r.nextKey = next.key;
     rests.push(r);
   }
   applyExtensionRest(rests, duties);
   for (const r of rests) {
-    if (r.status === 'over') add('bad', isoDate(r.toMs), `Riposo ${fmtHM(r.restMin)} sotto il minimo ${fmtHM(r.needMin)} (${r.why.join('; ')})${r.hasNight ? '' : ' — manca la notte locale'}`);
-    else if (r.status === 'warn') add('warn', isoDate(r.toMs), `Riposo ${fmtHM(r.restMin)} appena sopra il minimo ${fmtHM(r.needMin)}`);
+    if (r.status === 'over') add('bad', isoDate(r.toMs), tr(`Riposo ${fmtHM(r.restMin)} sotto il minimo ${fmtHM(r.needMin)} (${r.why.join('; ')})${r.hasNight ? '' : ' — manca la notte locale'}`, `Rest ${fmtHM(r.restMin)} below the minimum ${fmtHM(r.needMin)} (${r.why.join('; ')})${r.hasNight ? '' : ' — local night missing'}`));
+    else if (r.status === 'warn') add('warn', isoDate(r.toMs), tr(`Riposo ${fmtHM(r.restMin)} appena sopra il minimo ${fmtHM(r.needMin)}`, `Rest ${fmtHM(r.restMin)} just above the minimum ${fmtHM(r.needMin)}`));
   }
 
   // estensioni pianificate: non più di 2 in 7 giorni consecutivi (OMA 7.1.7.2)
   const extDuties = duties.filter((d) => d.extPlanned).sort((a, b) => a.startMs - b.startMs);
   extDuties.forEach((d, i) => {
     const inWeek = extDuties.filter((x, j) => j <= i && d.startMs - x.startMs < 7 * 86400000);
-    if (inWeek.length > 2) add('bad', isoDate(d.startMs), `${inWeek.length} Extension FDP in 7 giorni: massimo 2`);
+    if (inWeek.length > 2) add('bad', isoDate(d.startMs), tr(`${inWeek.length} Extension FDP in 7 giorni: massimo 2`, `${inWeek.length} FDP Extensions in 7 days: maximum 2`));
   });
 
   const busy = busyIntervals(sorted, duties, ctx);
@@ -417,11 +418,11 @@ export function analyze(days, options) {
   let reserveRun = 0;
   let prevReserve = null;
   for (const b of busy) {
-    if (b.kind === 'standby' && (b.to - b.from) / HOUR > 16) add('bad', b.date, `Stand-by di ${fmtHM(Math.round((b.to - b.from) / MIN))}: massimo 16 h`);
+    if (b.kind === 'standby' && (b.to - b.from) / HOUR > 16) add('bad', b.date, tr(`Stand-by di ${fmtHM(Math.round((b.to - b.from) / MIN))}: massimo 16 h`, `Standby of ${fmtHM(Math.round((b.to - b.from) / MIN))}: maximum 16 h`));
     if (b.kind === 'reserve') {
       reserveRun = prevReserve && b.date === addDay(prevReserve) ? reserveRun + 1 : 1;
       prevReserve = b.date;
-      if (reserveRun > 3) add('bad', b.date, `${reserveRun} giorni di reserve consecutivi: massimo 3`);
+      if (reserveRun > 3) add('bad', b.date, tr(`${reserveRun} giorni di reserve consecutivi: massimo 3`, `${reserveRun} consecutive reserve days: maximum 3`));
     }
   }
 
@@ -436,12 +437,12 @@ export function analyze(days, options) {
       if (v > best.min) best = { min: v, date };
     }
     cumulative[key] = { ...best, limit };
-    if (best.min > limit) add('bad', best.date, `Duty ${label}: ${fmtHM(best.min)} sopra ${fmtHM(limit)}`);
-    else if (best.min > limit * 0.92) add('warn', best.date, `Duty ${label}: ${fmtHM(best.min)} su ${fmtHM(limit)}`);
+    if (best.min > limit) add('bad', best.date, tr(`Duty ${label}: ${fmtHM(best.min)} sopra ${fmtHM(limit)}`, `Duty ${label}: ${fmtHM(best.min)} above ${fmtHM(limit)}`));
+    else if (best.min > limit * 0.92) add('warn', best.date, tr(`Duty ${label}: ${fmtHM(best.min)} su ${fmtHM(limit)}`, `Duty ${label}: ${fmtHM(best.min)} of ${fmtHM(limit)}`));
   };
-  peak(7, 'duty7', LIMITS.duty7, 'in 7 giorni');
-  peak(14, 'duty14', LIMITS.duty14, 'in 14 giorni');
-  peak(28, 'duty28', LIMITS.duty28, 'in 28 giorni');
+  peak(7, 'duty7', LIMITS.duty7, tr('in 7 giorni', 'in 7 days'));
+  peak(14, 'duty14', LIMITS.duty14, tr('in 14 giorni', 'in 14 days'));
+  peak(28, 'duty28', LIMITS.duty28, tr('in 28 giorni', 'in 28 days'));
 
   // giorni liberi da servizio, stand-by e reserve (giorno locale di base)
   const freeByMonth = {};
@@ -458,7 +459,7 @@ export function analyze(days, options) {
   }
   for (const [month, v] of Object.entries(freeByMonth)) {
     const complete = v.days >= 28;
-    if (complete && v.free < 7) add('bad', `${month}-01`, `Giorni liberi nel mese: ${v.free} (minimo 7)`);
+    if (complete && v.free < 7) add('bad', `${month}-01`, tr(`Giorni liberi nel mese: ${v.free} (minimo 7)`, `Days off in the month: ${v.free} (minimum 7)`));
   }
 
   // recupero esteso: almeno 36 h con 2 notti locali, e non più di 168 h tra uno e l'altro
@@ -476,11 +477,11 @@ export function analyze(days, options) {
   }
   for (let i = 1; i < merged.length; i++) {
     const gap = (merged[i].fromMs - merged[i - 1].toMs) / HOUR;
-    if (gap > 168) add('bad', isoDate(merged[i].fromMs), `${Math.round(gap)} h tra due recuperi estesi: massimo 168 h`);
+    if (gap > 168) add('bad', isoDate(merged[i].fromMs), tr(`${Math.round(gap)} h tra due recuperi estesi: massimo 168 h`, `${Math.round(gap)} h between two extended recovery rests: maximum 168 h`));
     // 4 o più notti/presto/tardi tra due recuperi: il secondo recupero sale a 60 h
     const between = duties.filter((d) => d.startMs >= merged[i - 1].toMs && d.startMs < merged[i].fromMs);
     const disruptive = between.filter((d) => d.tags.some((x) => ['notte', 'presto', 'tardi'].includes(x))).length;
-    if (disruptive >= 4 && (merged[i].toMs - merged[i].fromMs) / HOUR < 60) add('warn', isoDate(merged[i].fromMs), `${disruptive} servizi notte/presto/tardi: il recupero successivo dovrebbe essere di 60 h`);
+    if (disruptive >= 4 && (merged[i].toMs - merged[i].fromMs) / HOUR < 60) add('warn', isoDate(merged[i].fromMs), tr(`${disruptive} servizi notte/presto/tardi: il recupero successivo dovrebbe essere di 60 h`, `${disruptive} night/early/late duties: the next recovery rest should be 60 h`));
   }
 
   issues.sort((a, b) => a.date.localeCompare(b.date) || (a.severity === 'bad' ? -1 : 1));

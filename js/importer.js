@@ -2,6 +2,7 @@
 import './polyfills.js';
 import { parsePdf, checkTotals } from '../src/parser.js';
 import { changesFor } from '../src/merge.js';
+import { tr } from '../src/i18n.js';
 
 let pdfjsPromise;
 function loadPdfjs() {
@@ -14,7 +15,7 @@ function loadPdfjs() {
 
 export class ImportError extends Error {}
 
-const describe = (e) => `${e?.name ?? 'Errore'}: ${String(e?.message ?? e).slice(0, 160)}`;
+const describe = (e) => `${e?.name ?? tr('Errore', 'Error')}: ${String(e?.message ?? e).slice(0, 160)}`;
 
 // Legge il PDF e prepara il record da salvare. Non scrive nulla.
 export async function readRoster(arrayBuffer, existingImports, fileName = '') {
@@ -23,7 +24,7 @@ export async function readRoster(arrayBuffer, existingImports, fileName = '') {
     pdfjs = await loadPdfjs();
   } catch (e) {
     pdfjsPromise = undefined;
-    throw new ImportError(`Non riesco ad avviare il lettore PDF (${describe(e)}).`);
+    throw new ImportError(tr(`Non riesco ad avviare il lettore PDF (${describe(e)}).`, `Cannot start the PDF reader (${describe(e)}).`));
   }
   let roster;
   try {
@@ -31,13 +32,13 @@ export async function readRoster(arrayBuffer, existingImports, fileName = '') {
   } catch (e) {
     console.error(e);
     const bad = /Invalid PDF|InvalidPDF|header/i.test(`${e?.name} ${e?.message}`);
-    throw new ImportError(bad ? 'Questo file non sembra un PDF valido.' : `Non riesco a leggere il PDF (${describe(e)}).`);
+    throw new ImportError(bad ? tr('Questo file non sembra un PDF valido.', 'This file does not look like a valid PDF.') : tr(`Non riesco a leggere il PDF (${describe(e)}).`, `Cannot read the PDF (${describe(e)}).`));
   }
   if (!roster.meta.periodStart || !roster.meta.periodEnd || !roster.days.length || !roster.days.some((d) => d.kind !== 'blank')) {
-    throw new ImportError('PDF non riconosciuto: non trovo il periodo e i turni di un "Individual duty plan" NetLine/Crew. Il formato potrebbe essere cambiato.');
+    throw new ImportError(tr('PDF non riconosciuto: non trovo il periodo e i turni di un "Individual duty plan" NetLine/Crew. Il formato potrebbe essere cambiato.', 'PDF not recognised: no period or duties of a NetLine/Crew "Individual duty plan" found. The format may have changed.'));
   }
   const dup = existingImports.find((i) => i.roster.meta.printedAt && i.roster.meta.printedAt === roster.meta.printedAt && i.roster.meta.periodStart === roster.meta.periodStart && i.roster.meta.periodEnd === roster.meta.periodEnd);
-  if (dup) throw new ImportError('Questo PDF è già stato importato (stessa data di stampa e stesso periodo).');
+  if (dup) throw new ImportError(tr('Questo PDF è già stato importato (stessa data di stampa e stesso periodo).', 'This PDF has already been imported (same print date and period).'));
   const changes = changesFor(existingImports, roster);
   return {
     record: { importedAt: new Date().toISOString(), fileName, roster, changes: changes.count ? changes : null, seen: !changes.count },

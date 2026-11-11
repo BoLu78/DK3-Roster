@@ -19,6 +19,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 import { timezoneFor, localToUtcMs } from './tz.js';
+import { tr } from './i18n.js';
 
 const RE_DAY_LABEL = /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)(\d\d)$/;
 // orario del PDF: "1415" (UTC), oppure in ora locale "!1413" ("!" = fuso diverso
@@ -531,7 +532,7 @@ export function parseRoster(pages) {
     const date = dateOfLabel(block.label);
     const day = byDate.get(date) ?? spillDay(block.label);
     if (!day) {
-      warnings.push(`Giorno ${block.label} non riconosciuto`);
+      warnings.push(tr(`Giorno ${block.label} non riconosciuto`, `Day ${block.label} not recognised`));
       continue;
     }
     for (const c of block.cellsList) applyRow(day, c);
@@ -564,7 +565,7 @@ export function parseRoster(pages) {
     const day = byDate.get(date);
     const leg = day?.legs.find((l) => l.kind === 'flight' && l.number === cl.number && cleanTime(l.depTime) === cl.depTime);
     if (leg) leg.crew = { cockpit: cl.cockpit, cabin: cl.cabin };
-    else warnings.push(`Equipaggio senza tratta: ${cl.label} ${cl.number}`);
+    else warnings.push(tr(`Equipaggio senza tratta: ${cl.label} ${cl.number}`, `Crew without a leg: ${cl.label} ${cl.number}`));
   }
   for (const cg of crewGround) {
     const date = dateOfLabel(cg.label);
@@ -592,7 +593,7 @@ export function parseRoster(pages) {
   meta.localTimes = !!meta.localTimes;
   const unknownTz = new Set();
   for (const day of [...days, ...spill]) normalizeTimes(day, meta, airports, unknownTz);
-  if (unknownTz.size) warnings.push(`Fuso orario sconosciuto per ${[...unknownTz].join(', ')}: orari lasciati come scritti nel PDF`);
+  if (unknownTz.size) warnings.push(tr(`Fuso orario sconosciuto per ${[...unknownTz].join(', ')}: orari lasciati come scritti nel PDF`, `Unknown time zone for ${[...unknownTz].join(', ')}: times left as printed in the PDF`));
 
   return { meta, days, spill, totals, hotels, airports, recurrent, warnings };
 }
