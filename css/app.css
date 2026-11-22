@@ -287,3 +287,7 @@ input[type=number] { width: 72px; text-align: right; }
 .list .more-link { display: block; width: 100%; text-align: center; color: var(--accent, #0a84ff); font-weight: 600; padding: 12px; background: none; border: 0; }
 .howto { margin-top: 10px; font-size: 13.5px; } .howto summary { font-weight: 700; color: var(--accent); padding: 6px 0; cursor: pointer; }
 .howto p, .howto li { margin: 6px 0; line-height: 1.4; } .howto ol { padding-left: 20px; margin: 6px 0; }
+.crewseg select { flex: 1; font: inherit; font-size: 14px; padding: 6px 8px; border-radius: 10px; border: 0; background: var(--chip); color: var(--text); }
+.limitedby { font-size: 13px; font-weight: 700; margin: 0 0 10px; padding: 6px 10px; border-radius: 10px; }
+.limitedby.cabin { color: var(--warn); background: color-mix(in srgb, var(--warn) 13%, transparent); }
+.limitedby.pilots { color: var(--muted); background: var(--chip); }

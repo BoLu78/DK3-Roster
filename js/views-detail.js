@@ -2,7 +2,7 @@
 import { h, fmtDayShort, dowOf, kindOf, titleCase } from './util.js';
 import { dowName } from './util.js';
 import { state, actions, saveSettings, homeTravelMin } from './state.js';
-import { fmtHM } from '../src/ftl.js';
+import { fmtHM, cabinRestOptions, cabinInflightMax } from '../src/ftl.js';
 import { eventName } from '../src/labels.js';
 import { wxChip } from './weather-ui.js';
 import { times, timeEl, utcText, locText } from './timefmt.js';
@@ -68,15 +68,39 @@ function fdpCard(d, day) {
   const f = d.fdp;
   const L = d.limits;
   const stat = d.status;
+  // piloti: di partenza quelli del PDF; la scelta manuale vale solo se diversa dal PDF
   const setCrew = (n) => {
-    if (n === 2) delete state.settings.ftlCrew[d.key];
+    if (n === (d.crewPdf ?? 2)) delete state.settings.ftlCrew[d.key];
     else state.settings.ftlCrew[d.key] = n;
     saveSettings();
     actions.ftlChanged(day.date);
   };
+  // riposo in volo della cabina (OMA 7.1.7.3): di partenza 1:30, il minimo
+  state.settings.ftlCabinRest ??= {};
+  const setCabin = (min) => {
+    if (min === 90) delete state.settings.ftlCabinRest[d.key];
+    else state.settings.ftlCabinRest[d.key] = min;
+    saveSettings();
+    actions.ftlChanged(day.date);
+  };
+  const cabinSel = L.inflightPilots
+    ? (() => {
+        const sel = h('select', { 'aria-label': tr('Riposo in volo della cabina', 'Cabin crew in-flight rest') },
+          cabinRestOptions(L.restClass).map((r) => h('option', { value: String(r), selected: r === L.cabinRest }, `${fmtHM(r)} → ${tr('max', 'max')} ${fmtHM(cabinInflightMax(r, L.restClass))}`)));
+        sel.addEventListener('change', () => setCabin(Number(sel.value)));
+        return h('div', { class: 'crewseg' }, h('span', { class: 'muted' }, tr('Riposo cabina', 'Cabin rest')), sel);
+      })()
+    : null;
+  const limitedTxt = d.limitedBy === 'cabin'
+    ? tr(`Limita la cabina: ${fmtHM(L.inflightCabin ?? L.basic)} (piloti ${fmtHM(L.inflightPilots)})`, `Cabin crew is limiting: ${fmtHM(L.inflightCabin ?? L.basic)} (pilots ${fmtHM(L.inflightPilots)})`)
+    : d.limitedBy === 'pilots' ? tr(`Limitano i piloti: ${fmtHM(L.inflightPilots)} (cabina ${fmtHM(L.inflightCabin)})`, `Pilots are limiting: ${fmtHM(L.inflightPilots)} (cabin ${fmtHM(L.inflightCabin)})`) : null;
   const seg = d.crewLocked
     ? h('div', { class: 'muted', style: 'font-size:13px;margin:6px 0' }, tr('Piloti: 2 (standard) · riposo in volo non ammesso con Extension', 'Pilots: 2 (standard) · in-flight rest not allowed with Extension'))
-    : h('div', { class: 'crewseg' }, h('span', { class: 'muted' }, tr('Piloti', 'Pilots')), h('div', { class: 'seg' }, [2, 3, 4].map((n) => h('button', { 'aria-pressed': String(d.crew === n), onclick: () => setCrew(n) }, n === 2 ? '2 (standard)' : String(n)))));
+    : h('div', {},
+        h('div', { class: 'crewseg' }, h('span', { class: 'muted' }, tr('Piloti', 'Pilots')), h('div', { class: 'seg' }, [2, 3, 4].map((n) => h('button', { 'aria-pressed': String(d.crew === n), onclick: () => setCrew(n) }, n === 2 ? '2 (standard)' : String(n))))),
+        d.crewFromPdf && d.crew > 2 ? h('div', { class: 'muted', style: 'font-size:12.5px;margin:-6px 0 8px' }, tr(`${d.crew} piloti secondo il PDF`, `${d.crew} pilots according to the PDF`)) : null,
+        cabinSel,
+        limitedTxt ? h('div', { class: `limitedby ${d.limitedBy}` }, limitedTxt) : null);
   const kindTxt = { basic: tr('tabella base', 'basic table'), ext: tr('con Extension', 'with Extension'), inflight: tr('con riposo in volo', 'with in-flight rest') }[d.limitKind] ?? tr('tabella base', 'basic table');
   const refTime = `${String(Math.floor(d.refMinute / 60)).padStart(2, '0')}:${String(d.refMinute % 60).padStart(2, '0')}`;
   const sub = tr(`${f.sectors} ${f.sectors === 1 ? 'settore' : 'settori'}, inizio ${refTime} ora di riferimento`, `${f.sectors} ${f.sectors === 1 ? 'sector' : 'sectors'}, start ${refTime} reference time`);

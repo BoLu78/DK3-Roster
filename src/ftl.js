@@ -104,6 +104,35 @@ export function inflightRestMax(crew, sectors, restClass, longSector) {
   return h * 60;
 }
 
+// Riposo in volo della cabina (OMA 7.1.7.3 (3)): FDP esteso massimo -> riposo minimo per ogni assistente.
+// Righe [FDP massimo in minuti, riposo classe 1, riposo classe 2] (null = non ammesso)
+export const CABIN_REST_TABLE = [
+  [870, 90, 90], // fino a 14:30
+  [900, 105, 120], // 15:00
+  [930, 120, 140], // 15:30
+  [960, 135, 160], // 16:00
+  [990, 155, 180], // 16:30
+  [1020, 180, 205], // 17:00
+  [1050, 205, null], // 17:30
+  [1080, 230, null], // 18:00
+];
+// riposi selezionabili per la cabina, secondo la classe dei posti (B737 classe 2, B787 classe 1)
+export const cabinRestOptions = (restClass) => CABIN_REST_TABLE.map((r) => r[restClass === 1 ? 1 : 2]).filter((x) => x != null);
+// FDP esteso massimo che la cabina può fare con quel riposo (null = sotto 1:30, nessuna estensione)
+export function cabinInflightMax(restMin, restClass) {
+  let best = null;
+  for (const r of CABIN_REST_TABLE) {
+    const need = r[restClass === 1 ? 1 : 2];
+    if (need != null && restMin >= need) best = r[0];
+  }
+  return best;
+}
+// riposo minimo della cabina per un certo FDP (null se l'FDP è oltre la tabella)
+export function cabinRestNeeded(fdpMin, restClass) {
+  const row = CABIN_REST_TABLE.find((r) => fdpMin <= r[0] && r[restClass === 1 ? 1 : 2] != null);
+  return row ? row[restClass === 1 ? 1 : 2] : null;
+}
+
 // ---------------------------------------------------------------- orari locali
 function makeCtx(base, airports) {
   const baseTz = timezoneFor(base, airports);
@@ -128,7 +157,7 @@ export { fmtHM };
 // ---------------------------------------------------------------- analisi di un servizio
 export const dutyKey = (d) => `${d.startMs}`;
 
-function analyzeDuty(duty, trip, ctx, crew, extFlag = false) {
+function analyzeDuty(duty, trip, ctx, crew, extFlag = false, cabinRestMin = null) {
   const legs = duty.legs.map((l) => l.leg);
   const flights = duty.legs.filter((l) => l.leg.kind === 'flight');
   const ciApt = duty.ci?.airport ?? legs[0]?.dep ?? ctx.base;
@@ -192,8 +221,27 @@ function analyzeDuty(duty, trip, ctx, crew, extFlag = false) {
   out.wocl = wocl;
   const longSector = flights.some((l) => (l.arrMs - l.depMs) / MIN > 540);
   const restClass = flights.every((l) => /787/.test(l.leg.ac ?? '')) ? 1 : 2;
-  const inflight = inflightRestMax(crew, sectors, restClass, longSector);
-  out.limits = { basic, ext, inflight, restClass };
+  // riposo in volo: vale il più basso tra il limite dei piloti e quello della cabina (OMA 7.1.7.3)
+  const inflightPilots = inflightRestMax(crew, sectors, restClass, longSector);
+  const cabinRest = inflightPilots ? cabinRestMin ?? 90 : null;
+  const inflightCabin = inflightPilots ? cabinInflightMax(cabinRest, restClass) : null;
+  let inflight = inflightPilots ? Math.min(inflightPilots, inflightCabin ?? 0) : null;
+  if (inflight != null && inflight <= (basic ?? 0)) inflight = null; // la cabina non riposa abbastanza: niente estensione
+  out.limits = { basic, ext, inflight, inflightPilots, inflightCabin, cabinRest, restClass };
+  out.limitedBy = inflightPilots ? (inflight == null ? 'cabin' : inflightCabin < inflightPilots ? 'cabin' : 'pilots') : null;
+  if (inflightPilots && !extFlag) {
+    out.notes.push(tr(
+      `Piloti (${crew}, posti classe ${restClass}): ${fmtHM(inflightPilots)} · cabina (riposo ${fmtHM(cabinRest)}): ${inflightCabin ? fmtHM(inflightCabin) : 'nessuna estensione'} → ${out.limitedBy === 'cabin' ? 'limita la cabina' : 'limitano i piloti'}`,
+      `Pilots (${crew}, class ${restClass} seats): ${fmtHM(inflightPilots)} · cabin (rest ${fmtHM(cabinRest)}): ${inflightCabin ? fmtHM(inflightCabin) : 'no extension'} → ${out.limitedBy === 'cabin' ? 'cabin crew is limiting' : 'pilots are limiting'}`));
+    out.notes.push(tr('Riposo in volo: max 3 settori, almeno 1:30 consecutive per ciascuno e 2 h per i piloti ai comandi in atterraggio; riposo dopo almeno 14 h', 'In-flight rest: max 3 sectors, at least 1:30 consecutive for each crew member and 2 h for the pilots at the controls for landing; rest afterwards at least 14 h'));
+    if (fdpMin > (basic ?? 0)) {
+      const need = cabinRestNeeded(fdpMin, restClass);
+      out.cabinRestNeeded = need;
+      out.notes.push(need != null
+        ? tr(`Per questo FDP (${fmtHM(fdpMin)}) la cabina deve riposare almeno ${fmtHM(need)} a testa`, `For this FDP (${fmtHM(fdpMin)}) each cabin crew member needs at least ${fmtHM(need)} of rest`)
+        : tr(`FDP ${fmtHM(fdpMin)} oltre la tabella della cabina`, `FDP ${fmtHM(fdpMin)} beyond the cabin crew table`));
+    }
+  }
 
   // E_FDP nel roster = servizio pianificato con estensione ("EXTENSION" nell'app): vale il massimo esteso (OMA 7.1.7.2)
   const extPlanned = extFlag && ext != null;
@@ -346,9 +394,16 @@ function dutyInWindow(busy, fromMs, toMs) {
 export const LIMITS = { duty7: 3600, duty14: 6600, duty28: 11400, dutyYear: 120000, ft28: 6000, ftYear: 54000, ft12m: 60000 };
 
 // ---------------------------------------------------------------- analisi completa
-// days: tutti i giorni (ordinati). options: { base, airports, crewByDuty: {key: 2|3|4} }
+// piloti in cabina di pilotaggio secondo il PDF (il massimo tra le tratte del servizio), da 2 a 4
+function pdfPilots(duty) {
+  const n = Math.max(0, ...duty.legs.filter((l) => l.leg.kind === 'flight').map((l) => l.leg.crew?.cockpit?.length ?? 0));
+  return n >= 2 ? Math.min(n, 4) : null;
+}
+
+// days: tutti i giorni (ordinati). options: { base, airports, crewByDuty: {key: 2|3|4}, cabinRestByDuty: {key: minuti} }
+// Se l'utente non ha scelto i piloti, si usa il numero di piloti in cabina di pilotaggio indicato nel PDF.
 export function analyze(days, options) {
-  const { base = 'MXP', airports = {}, crewByDuty = {}, hubs = [] } = options;
+  const { base = 'MXP', airports = {}, crewByDuty = {}, cabinRestByDuty = {}, hubs = [] } = options;
   const ctx = makeCtx(base, airports);
   ctx.hubs = new Set([base, ...hubs]); // home base e hub della compagnia (OMA 7.2.1: discrezione da evitare)
   const sorted = [...days].sort((a, b) => a.date.localeCompare(b.date));
@@ -358,7 +413,13 @@ export function analyze(days, options) {
   const extDates = new Set(sorted.filter((d) => d.flags?.includes('E_FDP')).map((d) => d.date));
   const duties = buildDuties(sorted).map((d) => {
     const extFlag = d.dates.some((x) => extDates.has(x));
-    return analyzeDuty(d, tripOf.get(d), ctx, extFlag ? 2 : crewByDuty[dutyKey(d)] ?? 2, extFlag);
+    const key = dutyKey(d);
+    const fromPdf = pdfPilots(d);
+    const crew = extFlag ? 2 : crewByDuty[key] ?? fromPdf ?? 2;
+    const res = analyzeDuty(d, tripOf.get(d), ctx, crew, extFlag, cabinRestByDuty[key] ?? null);
+    res.crewFromPdf = !extFlag && crewByDuty[key] == null && fromPdf != null;
+    res.crewPdf = fromPdf;
+    return res;
   });
   for (const d of duties) if (extDates.size && d.dates.some((x) => extDates.has(x))) d.crewLocked = true;
   const issues = [];

@@ -22,7 +22,7 @@ export const state = {
 export const actions = { ftlChanged() {}, go() {}, openDay() {}, closeSheet() {}, refresh() {}, toast() {}, pickPdf() {}, showImportResult() {} };
 
 function loadSettings() {
-  const base = { warn: DEFAULT_THRESHOLDS.warn, critical: DEFAULT_THRESHOLDS.critical, include787: false, icsScope: 'all', icsAlarm: 0, statsUntil: 'auto', ftlCrew: {}, homeTravelMin: 90, weatherOn: false, familyFlightNumbers: true, icsFormat: 'full', hubs: ['MXP', 'VRN', 'FCO'], lang: 'it' };
+  const base = { warn: DEFAULT_THRESHOLDS.warn, critical: DEFAULT_THRESHOLDS.critical, include787: false, icsScope: 'all', icsAlarm: 0, statsUntil: 'auto', ftlCrew: {}, ftlCabinRest: {}, homeTravelMin: 90, weatherOn: false, familyFlightNumbers: true, icsFormat: 'full', hubs: ['MXP', 'VRN', 'FCO'], lang: 'it' };
   let s = base;
   try {
     s = { ...base, ...JSON.parse(storage.getItem(SETTINGS_KEY) ?? '{}') };

@@ -1,7 +1,7 @@
 // Test delle regole FTL con dati inventati (numeri dell'OMA cap. 7 / EASA ORO.FTL).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { basicFdpMax, extFdpMax, unknownFdpMax, inflightRestMax, analyze, woclEncroachMin, extSectorCap } from '../src/ftl.js';
+import { basicFdpMax, extFdpMax, unknownFdpMax, inflightRestMax, analyze, woclEncroachMin, extSectorCap, cabinRestOptions, cabinInflightMax, cabinRestNeeded } from '../src/ftl.js';
 
 const AIRPORTS = { MXP: { country: 'ITALY' }, RMF: { country: 'EGYPT' }, HAV: { country: 'CUBA' } };
 const m = (h, min = 0) => h * 60 + min;
@@ -56,12 +56,37 @@ test('analisi: FDP nel limite, oltre il limite e con equipaggio aumentato', () =
   r = analyze([over], { base: 'MXP', airports: AIRPORTS });
   assert.equal(r.duties[0].status, 'over');
   assert.ok(r.issues.some((i) => i.severity === 'bad'));
-  // con 3 piloti (riposo in volo) il limite sale a 15 h e il servizio rientra
+  // con 3 piloti i piloti arrivano a 15 h, ma la cabina con 1:30 di riposo (valore di partenza) si ferma a 14:30
   const key = String(r.duties[0].startMs);
   r = analyze([over], { base: 'MXP', airports: AIRPORTS, crewByDuty: { [key]: 3 } });
-  assert.equal(r.duties[0].limits.used, m(15));
+  assert.equal(r.duties[0].limits.inflightPilots, m(15));
+  assert.equal(r.duties[0].limits.inflightCabin, m(14.5));
+  assert.equal(r.duties[0].limits.used, m(14.5));
+  assert.equal(r.duties[0].limitedBy, 'cabin');
   assert.notEqual(r.duties[0].status, 'over');
+  // con 2:00 di riposo cabina si arriva a 15 h: limitano i piloti
+  r = analyze([over], { base: 'MXP', airports: AIRPORTS, crewByDuty: { [key]: 3 }, cabinRestByDuty: { [key]: 120 } });
+  assert.equal(r.duties[0].limits.used, m(15));
+  assert.equal(r.duties[0].limitedBy, 'pilots');
   assert.equal(r.duties[0].limits.discretion, m(18)); // +3 h con equipaggio aumentato
+});
+
+test('riposo in volo della cabina: tabella OMA 7.1.7.3', () => {
+  // classe 2 (B737)
+  assert.deepEqual(cabinRestOptions(2), [90, 120, 140, 160, 180, 205]);
+  assert.equal(cabinInflightMax(90, 2), m(14.5));
+  assert.equal(cabinInflightMax(119, 2), m(14.5));
+  assert.equal(cabinInflightMax(120, 2), m(15));
+  assert.equal(cabinInflightMax(205, 2), m(17));
+  assert.equal(cabinInflightMax(60, 2), null);
+  // classe 1 (B787)
+  assert.equal(cabinInflightMax(105, 1), m(15));
+  assert.equal(cabinInflightMax(230, 1), m(18));
+  // riposo minimo per un FDP
+  assert.equal(cabinRestNeeded(m(14.5), 2), 90);
+  assert.equal(cabinRestNeeded(m(15) + 1, 2), 140);
+  assert.equal(cabinRestNeeded(m(17.5), 2), null);
+  assert.equal(cabinRestNeeded(m(17.5), 1), 205);
 });
 
 test('analisi: riposo minimo a base e fuori base', () => {
