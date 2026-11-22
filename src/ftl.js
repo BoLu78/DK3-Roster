@@ -223,16 +223,22 @@ function analyzeDuty(duty, trip, ctx, crew, extFlag = false, cabinRestMin = null
   const restClass = flights.every((l) => /787/.test(l.leg.ac ?? '')) ? 1 : 2;
   // riposo in volo: vale il più basso tra il limite dei piloti e quello della cabina (OMA 7.1.7.3)
   const inflightPilots = inflightRestMax(crew, sectors, restClass, longSector);
-  const cabinRest = inflightPilots ? cabinRestMin ?? 90 : null;
+  // riposo cabina non scelto: si assume quello che serve per l'FDP pianificato (1:30 se l'FDP sta nel massimo base,
+  // il massimo della tabella se l'FDP è oltre), così il limite dipende dai piloti e la nota dice quanto deve riposare la cabina
+  const cabinRestDefault = inflightPilots
+    ? fdpMin > (basic ?? 0) ? cabinRestNeeded(fdpMin, restClass) ?? Math.max(...cabinRestOptions(restClass)) : 90
+    : null;
+  const cabinRest = inflightPilots ? cabinRestMin ?? cabinRestDefault : null;
+  const cabinRestAuto = !!inflightPilots && cabinRestMin == null;
   const inflightCabin = inflightPilots ? cabinInflightMax(cabinRest, restClass) : null;
   let inflight = inflightPilots ? Math.min(inflightPilots, inflightCabin ?? 0) : null;
   if (inflight != null && inflight <= (basic ?? 0)) inflight = null; // la cabina non riposa abbastanza: niente estensione
-  out.limits = { basic, ext, inflight, inflightPilots, inflightCabin, cabinRest, restClass };
+  out.limits = { basic, ext, inflight, inflightPilots, inflightCabin, cabinRest, cabinRestDefault, cabinRestAuto, restClass };
   out.limitedBy = inflightPilots ? (inflight == null ? 'cabin' : inflightCabin < inflightPilots ? 'cabin' : 'pilots') : null;
   if (inflightPilots && !extFlag) {
     out.notes.push(tr(
-      `Piloti (${crew}, posti classe ${restClass}): ${fmtHM(inflightPilots)} · cabina (riposo ${fmtHM(cabinRest)}): ${inflightCabin ? fmtHM(inflightCabin) : 'nessuna estensione'} → ${out.limitedBy === 'cabin' ? 'limita la cabina' : 'limitano i piloti'}`,
-      `Pilots (${crew}, class ${restClass} seats): ${fmtHM(inflightPilots)} · cabin (rest ${fmtHM(cabinRest)}): ${inflightCabin ? fmtHM(inflightCabin) : 'no extension'} → ${out.limitedBy === 'cabin' ? 'cabin crew is limiting' : 'pilots are limiting'}`));
+      `Piloti (${crew}, posti classe ${restClass}): ${fmtHM(inflightPilots)} · cabina (riposo ${fmtHM(cabinRest)}${cabinRestAuto ? ', quello che serve per questo FDP' : ''}): ${inflightCabin ? fmtHM(inflightCabin) : 'nessuna estensione'} → ${out.limitedBy === 'cabin' ? 'limita la cabina' : 'limitano i piloti'}`,
+      `Pilots (${crew}, class ${restClass} seats): ${fmtHM(inflightPilots)} · cabin (rest ${fmtHM(cabinRest)}${cabinRestAuto ? ', as needed for this FDP' : ''}): ${inflightCabin ? fmtHM(inflightCabin) : 'no extension'} → ${out.limitedBy === 'cabin' ? 'cabin crew is limiting' : 'pilots are limiting'}`));
     out.notes.push(tr('Riposo in volo: max 3 settori, almeno 1:30 consecutive per ciascuno e 2 h per i piloti ai comandi in atterraggio; riposo dopo almeno 14 h', 'In-flight rest: max 3 sectors, at least 1:30 consecutive for each crew member and 2 h for the pilots at the controls for landing; rest afterwards at least 14 h'));
     if (fdpMin > (basic ?? 0)) {
       const need = cabinRestNeeded(fdpMin, restClass);

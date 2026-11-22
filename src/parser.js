@@ -225,7 +225,13 @@ function cellsOf(row) {
     else if (rel >= 40 && rel <= 56 && /^(C\/I|C\/O|Briefing|Debriefing)$/.test(s)) cells.marker = s;
     else if (rel >= 30 && rel <= 44 && /^H\d$/.test(s)) cells.hotel = s;
     else if (rel >= 77 && rel <= 110 && /^\d{1,5}$/.test(s) && !cells.number) cells.number = s;
-    else if (rel >= 40 && rel < 77 && /^DH\/[A-Z0-9]{2}$/.test(s)) cells.duty.push(s); // positioning, es. "DH/W4"
+    else if (rel >= 40 && rel < 77 && /^DH\/[A-Z0-9]{2,3} \d{1,5}$/.test(s)) {
+      // sigla e numero in un unico frammento: "DH/EJU 5066"
+      const [code, num] = s.split(' ');
+      cells.duty.push(code);
+      cells.number ??= num;
+    }
+    else if (rel >= 40 && rel < 77 && /^DH\/[A-Z0-9]{2,3}$/.test(s)) cells.duty.push(s); // positioning, es. "DH/W4", "DH/EJU"
     else if (rel >= 55 && rel <= 130) cells.duty.push(s); // "OFF", "NO", "Pick" + "Up"
     else if (within(it, 148, 175) && RE_IATA.test(s)) cells.dep = s;
     else if (within(it, 182, 205) && RE_TIME.test(s)) cells.depTime = s;
@@ -282,8 +288,8 @@ function applyRow(day, c) {
     day.seq.push({ t: 'pickup', time: c.depTime });
   } else if (duty === 'E_FDP') {
     day.flags.push('E_FDP');
-  } else if (/^DH\/[A-Z0-9]{2}$/.test(duty) && c.number) {
-    // positioning su altra compagnia ("DH/W4 6403"): trasferimento, non settore
+  } else if (/^DH\/[A-Z0-9]{2,3}$/.test(duty) && c.number) {
+    // positioning su altra compagnia ("DH/W4 6403", "DH/EJU 5066"): trasferimento, non settore
     day.legs.push(newLeg('transport', c, { code: `DH ${duty.slice(3)} ${c.number}`, airline: duty.slice(3), number: c.number }));
     day.seq.push({ t: 'leg', index: day.legs.length - 1 });
   } else if (/^(?=.*[A-Z])[A-Z0-9]{2}$/.test(duty) && c.number) {
@@ -301,10 +307,11 @@ function applyRow(day, c) {
     day.code = 'X';
   } else if (duty) {
     day.notes.push(duty);
-  } else if (c.notes && !c.dep && !c.depTime) {
-    // riga di nota: va all'ultimo servizio ("LC 73 Trainee", "OPC 73 Trainee")
+  } else if (c.notes && !c.depTime && !c.arrTime && !c.hotel && !c.marker) {
+    // riga di nota: va all'ultimo servizio ("LC 73 Trainee", "OPC 73 Trainee").
+    // "OPC" cade nella colonna degli aeroporti e sembra un codice IATA: fa parte della nota
     const last = day.legs[day.legs.length - 1];
-    let text = c.notes;
+    let text = [c.dep, c.notes].filter(Boolean).join(' ');
     if (last && /Take-off|Landing/.test(text)) {
       // chi ha fatto decollo e/o atterraggio su questa tratta
       last.takeoff = /Take-off/.test(text);

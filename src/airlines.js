@@ -1,4 +1,4 @@
-// Codice compagnia (IATA, 2 caratteri) -> nome.
+// Codice compagnia (IATA a 2 caratteri, o ICAO a 3 come "DH/EJU") -> nome.
 // Serve a riconoscere i voli non Neos (wet lease, ACMI) e i positioning (DH)
 // su altre compagnie. Se un codice manca, l'app mostra solo il codice.
 import { tr } from './i18n.js';
@@ -12,6 +12,7 @@ const NAMES = {
   // Low cost
   W6: 'Wizz Air', W4: 'Wizz Air Malta', W9: 'Wizz Air UK', '5W': 'Wizz Air Abu Dhabi',
   FR: 'Ryanair', RK: 'Ryanair UK', AL: 'Malta Air', U2: 'easyJet', EC: 'easyJet Europe', DS: 'easyJet Switzerland',
+  EZY: 'easyJet', EJU: 'easyJet Europe', EZS: 'easyJet Switzerland', WZZ: 'Wizz Air', WMT: 'Wizz Air Malta', RYR: 'Ryanair',
   VY: 'Vueling', V7: 'Volotea', PC: 'Pegasus', LS: 'Jet2',
   // Italia
   AZ: 'ITA Airways', EN: 'Air Dolomiti', XZ: 'Aeroitalia',

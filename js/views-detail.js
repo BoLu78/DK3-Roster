@@ -75,10 +75,10 @@ function fdpCard(d, day) {
     saveSettings();
     actions.ftlChanged(day.date);
   };
-  // riposo in volo della cabina (OMA 7.1.7.3): di partenza 1:30, il minimo
+  // riposo in volo della cabina (OMA 7.1.7.3): di partenza quello che serve per l'FDP pianificato
   state.settings.ftlCabinRest ??= {};
   const setCabin = (min) => {
-    if (min === 90) delete state.settings.ftlCabinRest[d.key];
+    if (min === L.cabinRestDefault) delete state.settings.ftlCabinRest[d.key];
     else state.settings.ftlCabinRest[d.key] = min;
     saveSettings();
     actions.ftlChanged(day.date);

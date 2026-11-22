@@ -56,9 +56,13 @@ test('analisi: FDP nel limite, oltre il limite e con equipaggio aumentato', () =
   r = analyze([over], { base: 'MXP', airports: AIRPORTS });
   assert.equal(r.duties[0].status, 'over');
   assert.ok(r.issues.some((i) => i.severity === 'bad'));
-  // con 3 piloti i piloti arrivano a 15 h, ma la cabina con 1:30 di riposo (valore di partenza) si ferma a 14:30
   const key = String(r.duties[0].startMs);
+  // con 3 piloti e riposo cabina non scelto: si assume quello che serve per l'FDP (14:30 -> 1:30), limite 14:30
   r = analyze([over], { base: 'MXP', airports: AIRPORTS, crewByDuty: { [key]: 3 } });
+  assert.equal(r.duties[0].limits.cabinRestAuto, true);
+  assert.equal(r.duties[0].limits.cabinRest, 90);
+  // con 3 piloti i piloti arrivano a 15 h, ma la cabina con 1:30 di riposo si ferma a 14:30
+  r = analyze([over], { base: 'MXP', airports: AIRPORTS, crewByDuty: { [key]: 3 }, cabinRestByDuty: { [key]: 90 } });
   assert.equal(r.duties[0].limits.inflightPilots, m(15));
   assert.equal(r.duties[0].limits.inflightCabin, m(14.5));
   assert.equal(r.duties[0].limits.used, m(14.5));
@@ -69,6 +73,22 @@ test('analisi: FDP nel limite, oltre il limite e con equipaggio aumentato', () =
   assert.equal(r.duties[0].limits.used, m(15));
   assert.equal(r.duties[0].limitedBy, 'pilots');
   assert.equal(r.duties[0].limits.discretion, m(18)); // +3 h con equipaggio aumentato
+});
+
+test('equipaggio aumentato: riposo cabina di partenza = quello che serve per l’FDP', () => {
+  // 4 piloti, 3 settori, FDP 14:55: la cabina deve riposare 2:00 -> massimo 15:00 (non 14:30 con 1:30)
+  const aug = day('2026-12-02', [flight('1', 'MXP', 'RMF', '0550', '1200'), flight('2', 'RMF', 'RMF', '1250', '1315'), flight('3', 'RMF', 'MXP', '1400', '1945')], '0450', '2015');
+  const key = String(analyze([aug], { base: 'MXP', airports: AIRPORTS }).duties[0].startMs);
+  let r = analyze([aug], { base: 'MXP', airports: AIRPORTS, crewByDuty: { [key]: 4 } });
+  const d = r.duties[0];
+  assert.equal(d.fdp.min, m(14) + 55);
+  assert.equal(d.limits.inflightPilots, m(16));
+  assert.equal(d.limits.cabinRest, 120);
+  assert.equal(d.limits.used, m(15));
+  assert.notEqual(d.status, 'over');
+  // scelta esplicita di 1:30: la cabina limita a 14:30 e si va oltre
+  r = analyze([aug], { base: 'MXP', airports: AIRPORTS, crewByDuty: { [key]: 4 }, cabinRestByDuty: { [key]: 90 } });
+  assert.equal(r.duties[0].status, 'over');
 });
 
 test('riposo in volo della cabina: tabella OMA 7.1.7.3', () => {

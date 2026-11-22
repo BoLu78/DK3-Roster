@@ -187,3 +187,11 @@ Corretto anche l'escape del punto e virgola nei testi `.ics`.
 
 - (4 ott) Altro semplificato: una sola scheda "Esporta nel Calendario (.ics)" con menu Formato (Completo / Famiglia).
   Modo che funziona su iPhone: Esporta → Mail a se stessi → aprire l'allegato → "Aggiungi tutti" → scegliere il calendario.
+
+### Positioning DH/EJU e riposo cabina di partenza (22 nov 2026, v1.14.1)
+
+- Positioning con sigla compagnia a 3 caratteri ("DH/EJU 5066", easyJet Europe), anche con sigla e numero
+  in un unico frammento di testo: prima sparivano (dicembre: LIN→BER e BER→LIN intorno ai SIM di BER).
+- Righe di nota che iniziano con una sigla di 3 lettere ("OPC 73 Trainee"): "OPC" non è più preso per un aeroporto.
+- Equipaggio aumentato: se il riposo della cabina non è scelto, si assume quello che serve per l'FDP pianificato
+  (es. 2 dic, 4 piloti, FDP 14:55 → cabina 2:00, massimo 15:00) invece di 1:30 fisso.
